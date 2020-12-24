@@ -130,7 +130,7 @@ class TransformTester:
     
     def distortion_rms(self):
         err =  (self.point_array - self.result)
-        return np.mean(np.sqrt(err[:, 0] * err[:, 0] + err[:, 1] * err[:, 1]))
+        return np.sqrt(np.mean(err[:, 0] * err[:, 0] + err[:, 1] * err[:, 1]))
     
     def save_to_image(self, path):
         # Calculate geometry of the resulting image
