@@ -28,58 +28,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from harmoni_pm.transform import Transform, TransformTester
-from harmoni_pm.common import FloatArray
-import numpy as np
+from harmoni_pm.transform import TransformTester
+from harmoni_pm.poasim    import POATransform  
 
-class ScaleTransform(Transform):
-    def __forward__(self, p):
-        return 1.1 * p
-    
-    def __backward__(self, p):
-        return p / 1.1
-
-class ThirdOrderTransform(Transform):
-    def __init__(self, k):
-        self.k = k
-    def __forward__(self, p):
-        rho = np.linalg.norm(p)
-        theta = np.arctan2(p[1], p[0])
-            
-        rho *= (1 + self.k * rho * rho)
-        
-        x = rho * FloatArray.make((np.cos(theta), np.sin(theta)))
-        return x
-    
-    def __backward__(self, p):
-        rho = np.linalg.norm(p)
-        theta = np.arctan2(p[1], p[0])
-        
-        r = (9 * self.k * self.k * rho + 1.7321 * (27 * self.k ** 4 * rho * rho + 4 * self.k ** 3) ** .5)**(1. / 3.)
-        
-        if np.isnan(r) or r < 1e-13:
-            rho = 0
-        else:
-            rho = 0.38157 * r / self.k - 0.87358 / r
-        
-        return rho * FloatArray.make((np.cos(theta), np.sin(theta)))
-        
-class RotationTransform(Transform):
-    def __init__(self, theta):
-        self.prot = FloatArray.make(
-            [[np.cos(theta), np.sin(theta)],
-             [-np.sin(theta), np.cos(theta)]])
-        self.nrot = FloatArray.make(
-            [[np.cos(theta), -np.sin(theta)],
-             [np.sin(theta), np.cos(theta)]])
-        
-    def __forward__(self, p):
-        return self.prot.dot(p)
-    
-    def __backward__(self, p):
-        return self.nrot.dot(p)
-    
-    
 def runTest(transf):
     transf_name = type(transf).__name__
     print("Running tester on {0}...".format(transf_name))
@@ -103,8 +54,7 @@ def runTest(transf):
     
     print("  Distortion RMS after undo: {0}".format(tester.distortion_rms()))
 
+poa = POATransform(0, 15. / 180 * 3.1415926)
 
-runTest(ScaleTransform())
-runTest(RotationTransform(np.pi / 180. * 5))
-runTest(ThirdOrderTransform(1e-3))
+runTest(poa)
 

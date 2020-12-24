@@ -31,6 +31,10 @@
 from PIL import Image, ImageDraw, ImageFont
 from harmoni_pm.common.array import FloatArray
 
+from skyfield.api import Star, load
+from skyfield.data import hipparcos
+from skyfield.units import Angle
+
 import numpy as np
 
 IMAGE_WIDTH         = 1920
@@ -41,11 +45,60 @@ IMAGE_POINT_RADIUS  = 3
 class TransformTester:
     def __init__(self, transform):
         self.transform = transform
+        self.planets = load('de421.bsp')
+        self.earth = self.planets['earth']
+        
+    def prepare_dataset(self):
+        self.input       = self.point_array
+        self.origin_desc = "Undistorted pattern"
+        
+        self.point_count = self.point_array.shape[0]
+        self.result      = self.point_array
+        self.result_desc = self.origin_desc
+        
+    def generate_stars(self, ra, dec, ra_width, dec_width, maglimit):
+        self.width  = ra_width
+        self.height = dec_width
+        
+        # The "False" arguments below are to prevent skyfield from assuming
+        # that I am not in full command of my cognitive abilities
+        
+        self.desc   = "Field stars in RADEC {0} / {1}".format(
+            Angle(degrees = ra).hstr(warn = False), 
+            Angle(degrees = dec).dstr(warn = False)) 
+        
+        df = hipparcos.load_dataframe(load.open(hipparcos.URL))
+
+        df = df[(df['magnitude'] <= maglimit)
+                & (df['ra_degrees']  >= ra  - .5 * ra_width)
+                & (df['ra_degrees']  <  ra  + .5 * ra_width)
+                & (df['dec_degrees'] >= dec - .5 * dec_width)
+                & (df['dec_degrees'] <  dec + .5 * dec_width)]
+        
+        print("Selected: {0} stars in field".format(len(df)))
+        
+        stars = Star.from_dataframe(df)
+        ts = load.timescale()
+        t = ts.now()
+        # t = ts.utc(2020, 12, 24)
+        
+        astrometric = self.earth.at(t).observe(stars)
+        ralist, declist, distance = astrometric.radec()
+        
+        self.sizes = .5 * 10. ** (.5 * (2.5 -.4 * FloatArray.make(df['magnitude'])))
+        
+        self.point_array = np.transpose(
+            FloatArray.make(
+                [ralist._degrees - ra, declist.degrees - dec]))
+    
+        self.prepare_dataset()
         
     def generate_points(self, width, height, delta_x, delta_y):
-        self.width = width
+        self.width  = width
         self.height = height
-        
+        self.sizes  = None
+        self.desc   = "Rectangular grid of points"
+         
         rows = int(np.floor(height / delta_y))
         cols = int(np.floor(width  / delta_x))
         count = 0
@@ -58,13 +111,7 @@ class TransformTester:
                 self.point_array[count, 1] = (.5 + j - np.floor(rows) / 2) * delta_y
                 count += 1
         
-        self.point_count = count
-        
-        self.input       = self.point_array
-        self.origin_desc = "Undistorted pattern"
-        
-        self.result      = self.point_array
-        self.result_desc = self.origin_desc
+        self.prepare_dataset()
         
     def backfeed(self):
         self.input = self.result
@@ -131,23 +178,35 @@ class TransformTester:
             font = fnt_small,
             fill = "#000000")
         
+        draw.text(
+            (IMAGE_MARGIN_WIDTH, IMAGE_MARGIN_WIDTH + 172),
+            u"Description: {0}".format(self.desc),
+            font = fnt_small,
+            fill = "#000000")
+                
+        # Enclose it
+        draw.rectangle(field_box, fill='black', outline="gray", width=(IMAGE_POINT_RADIUS * 2))
+        
         for i in range(self.point_count):
+            if self.sizes is None:
+                radius = IMAGE_POINT_RADIUS
+            else:
+                radius = self.sizes[i]
+                
             xy1 = self.point_array[i, :] * m + x0y0
-            orig = [(xy1[0] - IMAGE_POINT_RADIUS, xy1[1] - IMAGE_POINT_RADIUS),
-                    (xy1[0] + IMAGE_POINT_RADIUS, xy1[1] + IMAGE_POINT_RADIUS)]
+            orig = [(xy1[0] - radius, xy1[1] - radius),
+                    (xy1[0] + radius, xy1[1] + radius)]
             
             xy2 = self.result[i, :] * m + x0y0
-            dest = [(xy2[0] - IMAGE_POINT_RADIUS, xy2[1] - IMAGE_POINT_RADIUS),
-                    (xy2[0] + IMAGE_POINT_RADIUS, xy2[1] + IMAGE_POINT_RADIUS)] 
+            dest = [(xy2[0] - radius, xy2[1] - radius),
+                    (xy2[0] + radius, xy2[1] + radius)] 
             
             rect = [(xy1[0], xy1[1]), (xy2[0], xy2[1])]
             
-            draw.ellipse(orig, fill = "black", outline = "black")
-            draw.line(rect,    fill = "blue",  width = IMAGE_POINT_RADIUS)
-            draw.ellipse(dest, fill = "red", outline = "red")
+            draw.ellipse(orig, fill = "gray", outline = "gray")
+            draw.line(rect,    fill = "#007f00",  width = 1)
+            draw.ellipse(dest, fill = "white", outline = "white")
         
-        # Enclose it
-        draw.rectangle(field_box, fill=None, outline="black", width=(IMAGE_POINT_RADIUS * 2))
             
         del draw
         im.save(path)

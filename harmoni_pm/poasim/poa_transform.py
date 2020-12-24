@@ -28,4 +28,43 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .poa_transform import POATransform
+from ..transform import Transform
+from ..common import FloatArray
+
+import numpy as np
+
+HARMONI_POA_FIELD_RADIUS  = 5 # Random value
+HARMONI_POA_ARM_RADIUS    = 5   # Random value
+HARMONI_POA_MAGNIFICATION = 1
+
+class POATransform(Transform):
+    def __init__(self, theta, phi):
+        self.set_axis_angles(theta, phi)
+        
+    def set_axis_angles(self, theta, phi):
+        self.theta   = theta
+        self.phi     = phi
+        self.rotangl = phi - theta
+        self.center  = FloatArray.make([
+            HARMONI_POA_FIELD_RADIUS * np.cos(self.theta) - HARMONI_POA_ARM_RADIUS * np.cos(self.rotangl),
+            HARMONI_POA_FIELD_RADIUS * np.sin(self.theta) + HARMONI_POA_ARM_RADIUS * np.sin(self.rotangl)])
+        
+        self.fwd_rot = FloatArray.make(
+            [[np.cos(self.rotangl),  -np.sin(self.rotangl)],
+             [np.sin(self.rotangl), np.cos(self.rotangl)]])
+        
+        self.bwd_rot = np.transpose(self.fwd_rot)
+        
+    def get_coest(self):
+        return 0
+    
+    def reset_cost(self):
+        pass
+    
+    def __forward__(self, p):
+        return self.fwd_rot.dot(p - self.center) / HARMONI_POA_MAGNIFICATION
+    
+    def __backward__(self, p):
+        return self.bwd_rot.dot(p * HARMONI_POA_MAGNIFICATION) + self.center
+
+    
