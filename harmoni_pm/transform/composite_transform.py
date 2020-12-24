@@ -28,7 +28,39 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import FloatArray
-from .transform import Transform
-from .composite_transform import CompositeTransform
-from .transform_tester import TransformTester
+from ..transform import Transform
+
+class CompositeTransform(Transform):
+    def __init__(self):
+        self.transforms = []
+        
+    def push_back(self, transform):
+        self.transforms.append(transform)
+        
+    def push_forward(self, transform):
+        self.transforms.prepend(transform)
+    
+    def forward(self, xy = None, x = None, y = None):
+        p = self.get_xy(x, y, xy)
+        
+        for t in self.transforms:
+            p = t.forward(p)
+            
+        return p
+        
+    def backward(self, xy = None, x = None, y = None):
+        p = self.get_xy(x, y, xy)
+        
+        for t in reversed(self.transforms):
+            p = t.backward(p)
+            
+        return p
+    
+    def generate(self):
+        for t in self.transforms:
+            t.generate()
+            
+    def reset(self):
+        for t in self.transforms:
+            t.reset()
+    

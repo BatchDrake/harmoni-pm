@@ -31,6 +31,7 @@
 from harmoni_pm.transform import Transform, TransformTester
 from harmoni_pm.common import FloatArray
 import numpy as np
+from harmoni_pm.transform.composite_transform import CompositeTransform
 
 class ScaleTransform(Transform):
     def __forward__(self, p):
@@ -107,4 +108,12 @@ def runTest(transf):
 runTest(ScaleTransform())
 runTest(RotationTransform(np.pi / 180. * 5))
 runTest(ThirdOrderTransform(1e-3))
+
+c = CompositeTransform()
+
+c.push_back(ScaleTransform())
+c.push_back(RotationTransform(np.pi / 180. * 5))
+
+runTest(c)
+
 
