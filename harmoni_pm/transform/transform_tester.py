@@ -89,7 +89,7 @@ class TransformTester:
         
         self.point_array = np.transpose(
             FloatArray.make(
-                [ralist._degrees - ra, declist.degrees - dec]))
+                [-ralist._degrees + ra, declist.degrees - dec]))
     
         self.prepare_dataset()
         
