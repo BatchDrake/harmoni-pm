@@ -28,6 +28,34 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import FloatArray
-from .transform import Transform
-from .transform_tester import TransformTester
+import numpy as np
+
+ARRAY_TYPE = 'float32'
+
+class FloatArray(np.ndarray):
+    def __new__(
+            cls, 
+            shape, 
+            buffer = None, 
+            offset = 0, 
+            strides = None, 
+            order = None):
+        obj = super(FloatArray, cls).__new__(
+            cls, 
+            shape, 
+            ARRAY_TYPE,
+            buffer, 
+            offset, 
+            strides,
+            order)
+
+        return obj
+    
+    @staticmethod
+    def make(lst):
+        return np.array(lst, dtype = ARRAY_TYPE)
+
+    @staticmethod
+    def compatible_with(arr):
+        return isinstance(arr, np.ndarray) and arr.dtype == ARRAY_TYPE
+    

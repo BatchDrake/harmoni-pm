@@ -28,6 +28,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import FloatArray
-from .transform import Transform
-from .transform_tester import TransformTester
+class InvalidPrototype(ValueError):
+    pass
+

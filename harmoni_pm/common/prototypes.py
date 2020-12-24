@@ -28,6 +28,14 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import FloatArray
-from .transform import Transform
-from .transform_tester import TransformTester
+from builtins import zip
+
+def is_prototype(args, types):
+    if len(args) != len(types):
+        return False
+    
+    for (a, t) in zip(args, types):
+        if not isinstance(a, t):
+            return False
+        
+    return True
