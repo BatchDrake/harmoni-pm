@@ -32,6 +32,7 @@ from harmoni_pm.transform import Transform, TransformTester
 from harmoni_pm.common import FloatArray
 import numpy as np
 from harmoni_pm.transform.composite_transform import CompositeTransform
+from harmoni_pm.transform.brown_conrady import BrownConradyTransform
 
 class ScaleTransform(Transform):
     def __forward__(self, p):
@@ -81,13 +82,16 @@ class RotationTransform(Transform):
         return self.nrot.dot(p)
     
     
-def runTest(transf):
+def runTest(transf, grid = False):
     transf_name = type(transf).__name__
     print("Running tester on {0}...".format(transf_name))
     tester = TransformTester(transf)
 
-    # tester.generate_points(10, 10, .5, .5)
-    tester.generate_stars(85, -1, 100, 100, 6)
+    if grid:
+        tester.generate_points(100, 100, 5, 5)
+    else:
+        tester.generate_stars(85, -1, 100, 100, 6)
+        
     tester.sample()
     
     print("  Applying forward...")
@@ -116,4 +120,4 @@ c.push_back(RotationTransform(np.pi / 180. * 5))
 
 runTest(c)
 
-
+runTest(BrownConradyTransform(1e-6, 0, -3e-4, -3e-4, -3e-4, 1e-4), grid = True)
