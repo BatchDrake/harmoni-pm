@@ -55,7 +55,7 @@ class POATransform(Transform):
         
         self.bwd_rot = np.transpose(self.fwd_rot)
         
-    def get_coest(self):
+    def get_cost(self):
         return 0
     
     def reset_cost(self):
