@@ -35,16 +35,17 @@ from harmoni_pm.transform.composite_transform import CompositeTransform
 from harmoni_pm.transform.brown_conrady import BrownConradyTransform
 
 class ScaleTransform(Transform):
-    def __forward__(self, p):
+    def _forward(self, p):
         return 1.1 * p
     
-    def __backward__(self, p):
+    def _backward(self, p):
         return p / 1.1
 
 class ThirdOrderTransform(Transform):
     def __init__(self, k):
         self.k = k
-    def __forward__(self, p):
+        
+    def _forward(self, p):
         rho = np.linalg.norm(p)
         theta = np.arctan2(p[1], p[0])
             
@@ -53,7 +54,7 @@ class ThirdOrderTransform(Transform):
         x = rho * FloatArray.make((np.cos(theta), np.sin(theta)))
         return x
     
-    def __backward__(self, p):
+    def _backward(self, p):
         rho = np.linalg.norm(p)
         theta = np.arctan2(p[1], p[0])
         
@@ -75,10 +76,10 @@ class RotationTransform(Transform):
             [[np.cos(theta), -np.sin(theta)],
              [np.sin(theta), np.cos(theta)]])
         
-    def __forward__(self, p):
+    def _forward(self, p):
         return self.prot.dot(p)
     
-    def __backward__(self, p):
+    def _backward(self, p):
         return self.nrot.dot(p)
     
     

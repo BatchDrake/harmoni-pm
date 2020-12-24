@@ -28,6 +28,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-class InvalidPrototype(ValueError):
+class InvalidPrototypeError(ValueError):
     pass
 
+class InvalidTensorShapeError(ValueError):
+    pass

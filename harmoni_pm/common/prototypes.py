@@ -29,6 +29,8 @@
 #
 
 from builtins import zip
+from .array import FloatArray
+from .exceptions import InvalidPrototypeError
 
 def is_prototype(args, types):
     if len(args) != len(types):
@@ -39,3 +41,31 @@ def is_prototype(args, types):
             return False
         
     return True
+
+def get_xy(xy = None, x = None, y = None):
+    if x is not None and y is not None:
+        if not isinstance(x, float) or not isinstance(y, float):
+            raise InvalidPrototypeError("x and y must be floats")
+        
+        FloatArray.make([x, y])
+    elif xy is not None:
+        if isinstance(xy, tuple):
+            if len(xy) != 2:
+                raise InvalidPrototypeError("xy must be a tuple of exactly 2 elements")
+            elif not isinstance(xy[0], float) or not isinstance(xy[1], float):
+                raise InvalidPrototypeError("xy elements must be floats")
+        
+            return FloatArray.make(xy)
+        
+        elif FloatArray.compatible_with(xy): 
+            if xy.shape[len(xy.shape) - 1] != 2:
+                raise InvalidPrototypeError("Last dimension of xy must be of 2 elements")
+            
+            return xy
+        
+        else:
+            raise InvalidPrototypeError("Invalid compound xy coordinates")
+    else:
+        raise InvalidPrototypeError("No coordinates were passed to method")
+
+        

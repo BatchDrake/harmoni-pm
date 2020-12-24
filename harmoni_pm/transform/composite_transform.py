@@ -29,6 +29,7 @@
 #
 
 from ..transform import Transform
+from ..common.prototypes import get_xy
 
 class CompositeTransform(Transform):
     def __init__(self):
@@ -41,7 +42,7 @@ class CompositeTransform(Transform):
         self.transforms.prepend(transform)
     
     def forward(self, xy = None, x = None, y = None):
-        p = self.get_xy(x, y, xy)
+        p = get_xy(xy, x, y)
         
         for t in self.transforms:
             p = t.forward(p)
@@ -49,7 +50,7 @@ class CompositeTransform(Transform):
         return p
         
     def backward(self, xy = None, x = None, y = None):
-        p = self.get_xy(x, y, xy)
+        p = get_xy(xy, x, y)
         
         for t in reversed(self.transforms):
             p = t.backward(p)

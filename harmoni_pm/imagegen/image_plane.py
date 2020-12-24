@@ -28,43 +28,27 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..transform import Transform
-from ..common import FloatArray
+
+from harmoni_pm.common.prototypes import get_xy
+from harmoni_pm.common.exceptions import InvalidTensorShapeError
 
 import numpy as np
 
-HARMONI_POA_FIELD_RADIUS  = 5 # Random value
-HARMONI_POA_ARM_RADIUS    = 5   # Random value
-HARMONI_POA_MAGNIFICATION = 1
-
-class POATransform(Transform):
-    def __init__(self, theta, phi):
-        self.set_axis_angles(theta, phi)
-        
-    def set_axis_angles(self, theta, phi):
-        self.theta   = theta
-        self.phi     = phi
-        self.rotangl = phi - theta
-        self.center  = FloatArray.make([
-            HARMONI_POA_FIELD_RADIUS * np.cos(self.theta) - HARMONI_POA_ARM_RADIUS * np.cos(self.rotangl),
-            HARMONI_POA_FIELD_RADIUS * np.sin(self.theta) + HARMONI_POA_ARM_RADIUS * np.sin(self.rotangl)])
-        
-        self.fwd_rot = FloatArray.make(
-            [[np.cos(self.rotangl),  -np.sin(self.rotangl)],
-             [np.sin(self.rotangl), np.cos(self.rotangl)]])
-        
-        self.bwd_rot = np.transpose(self.fwd_rot)
-        
-    def get_cost(self):
-        return 0
+class ImagePlane:
+    def _get_intensity(self, xy):
+        return 0.
     
-    def reset_cost(self):
-        pass
+    def _get_intensity_matrix(self, matrix):
+        if len(matrix.shape) != 2:
+            raise InvalidTensorShapeError("High-order tensors not yet supported")
+        
+        return np.apply_along_axis(self._get_intensity, 1, matrix)
     
-    def _forward(self, p):
-        return self.fwd_rot.dot(p - self.center) / HARMONI_POA_MAGNIFICATION
-    
-    def _backward(self, p):
-        return self.bwd_rot.dot(p * HARMONI_POA_MAGNIFICATION) + self.center
-
-    
+    def get_intensity(self, xy = None, x = None, y = None):
+        xy = get_xy(xy, x, y)
+        
+        if len(xy.shape) == 1:
+            return self._get_intensity(xy)
+        else:
+            return self._get_intensity_matrix(xy)
+        

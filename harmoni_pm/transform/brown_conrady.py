@@ -39,7 +39,7 @@ class BrownConradyTransform(Transform):
         self.qy = qy
         self.p  = FloatArray.make([px, py])
         
-    def __forward__(self, xy):
+    def _forward(self, xy):
         rho    = xy.dot(xy)
         k1rho  = self.k1 * rho
         k2rho2 = self.k2 * rho * rho
@@ -50,7 +50,7 @@ class BrownConradyTransform(Transform):
         
         return FloatArray.make([xy[0] + dx, xy[1] + dy])
     
-    def __backward__(self, xy):
+    def _backward(self, xy):
         # TODO: Implement me
         return xy
     
