@@ -28,13 +28,33 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-
 from harmoni_pm.common.prototypes import get_xy
 from harmoni_pm.common.exceptions import InvalidTensorShapeError
 
 import numpy as np
 
+#
+# Image planes are objects described in the *focal plane*. Focal planes are
+# described in terms of size units, not angle units. However, these objects
+# are usually sampled in angle units. That's why introduce this focal
+# length property, describing how angle sampling is translated into 
+# space coordinates in the image plane.
+#
+
 class ImagePlane:
+    def __init__(self):
+        self.f = 1 
+        
+    def set_focal_length(self, f):
+        self.f = f
+        pass
+    
+    def focal_length(self):
+        return self.f
+    
+    def plate_scale(self):
+        return 1 / self.f
+    
     def _get_intensity(self, xy):
         return 0.
     
@@ -45,7 +65,7 @@ class ImagePlane:
         return np.apply_along_axis(self._get_intensity, 1, matrix)
     
     def get_intensity(self, xy = None, x = None, y = None):
-        xy = get_xy(xy, x, y)
+        xy = self.f * get_xy(xy, x, y)
         
         if len(xy.shape) == 1:
             return self._get_intensity(xy)

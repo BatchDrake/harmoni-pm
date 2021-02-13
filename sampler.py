@@ -28,4 +28,17 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .image_sampler import ImageSampler
+from harmoni_pm.optics   import OpticalModel
+from harmoni_pm.imagegen import GCUImagePlane
+from harmoni_pm.imagesampler import ImageSampler  
+
+plane = GCUImagePlane()
+model = OpticalModel()
+
+sampler = ImageSampler(plane, model)
+
+model.move_to(0.1, 0)
+sampler.set_detector_geometry(128, 128, 14e-6, 14e-6, 1)
+
+sampler.integrate()
+sampler.save_to_file("ccd.png")

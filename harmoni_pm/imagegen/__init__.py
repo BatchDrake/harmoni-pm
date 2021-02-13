@@ -29,3 +29,5 @@
 #
 
 from .image_plane import ImagePlane
+from .gcu_image_plane import GCUImagePlane
+

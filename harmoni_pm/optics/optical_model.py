@@ -28,4 +28,27 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .image_sampler import ImageSampler
+from ..transform import CompositeTransform
+from ..poasim import POATransform
+from ..common import Configuration
+
+class OpticalModel:
+    def __init__(self):
+        self.description = Configuration()
+        
+        self.poa_transform = POATransform(0, 0)
+        self.transform = CompositeTransform()
+        
+        self.transform.push_back(self.poa_transform)
+        
+    def load_description(self, path):
+        pass
+    
+    def get_transform(self):
+        return self.transform
+    
+    def move_to(self, theta, phi):
+        self.poa_transform.set_axis_angles(theta, phi)
+    
+    def generate(self):
+        self.transform.generate()

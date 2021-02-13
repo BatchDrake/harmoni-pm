@@ -29,3 +29,4 @@
 #
 
 from .array import FloatArray
+from .configuration import Configuration

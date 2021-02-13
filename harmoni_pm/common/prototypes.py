@@ -47,7 +47,7 @@ def get_xy(xy = None, x = None, y = None):
         if not isinstance(x, float) or not isinstance(y, float):
             raise InvalidPrototypeError("x and y must be floats")
         
-        FloatArray.make([x, y])
+        return FloatArray.make([x, y])
     elif xy is not None:
         if isinstance(xy, tuple):
             if len(xy) != 2:
