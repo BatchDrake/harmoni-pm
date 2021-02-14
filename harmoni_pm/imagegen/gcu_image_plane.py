@@ -76,7 +76,7 @@ class GCUImagePlane(ImagePlane):
         self.params.load(path)
         self._extract_params()
     
-    def _get_intensity(self, xy):
+    def _get_intensity_matrix(self, xy):
         mod = np.fmod(
             1.5 * self.p_sep + np.fmod(xy - self.m_p0, self.p_sep), 
             self.p_sep) - .5 * self.p_sep
@@ -96,10 +96,11 @@ class GCUImagePlane(ImagePlane):
         # will assume you are building an integer matrix and round all floating
         # point numbers returned next.
         #
-        
-        I = self.p_int if np.linalg.norm(mod) <= .5 * self.p_diam else 0.
+            
+        return self.p_int * (np.linalg.norm(mod, axis = 1) <= .5 * self.p_diam)
     
-        return I
+    def _get_intensity(self, xy):
+        return self._get_intensity_matrix([xy])[0]
     
     def set_params(self, params):
         self.parse_dict(params)

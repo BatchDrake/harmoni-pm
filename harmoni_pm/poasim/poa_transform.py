@@ -61,8 +61,14 @@ class POATransform(Transform):
     def reset_cost(self):
         pass
     
+    def _forward_matrix(self, p):
+        return self.fwd_rot.dot((p - self.center).transpose()) / HARMONI_POA_MAGNIFICATION
+    
     def _forward(self, p):
         return self.fwd_rot.dot(p - self.center) / HARMONI_POA_MAGNIFICATION
+    
+    def _backward_matrix(self, p):
+        return self.bwd_rot.dot(p.transpose() * HARMONI_POA_MAGNIFICATION).transpose() + self.center
     
     def _backward(self, p):
         return self.bwd_rot.dot(p * HARMONI_POA_MAGNIFICATION) + self.center
