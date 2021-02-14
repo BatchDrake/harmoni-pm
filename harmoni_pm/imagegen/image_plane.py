@@ -61,7 +61,7 @@ class ImagePlane:
     def _get_intensity_matrix(self, matrix):
         if len(matrix.shape) != 2:
             raise InvalidTensorShapeError("High-order tensors not yet supported")
-        
+
         return np.apply_along_axis(self._get_intensity, 1, matrix)
     
     def get_intensity(self, xy = None, x = None, y = None):
@@ -71,4 +71,3 @@ class ImagePlane:
             return self._get_intensity(xy)
         else:
             return self._get_intensity_matrix(xy)
-        

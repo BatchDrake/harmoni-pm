@@ -82,7 +82,24 @@ class GCUImagePlane(ImagePlane):
             self.p_sep) - .5 * self.p_sep
 
         # TODO: Add diffuse light?
-        return self.p_int if np.linalg.norm(mod) <= .5 * self.p_diam else 0
+        
+        #
+        # Protip: never (ever) return something here different from a floating
+        # point number. Many C programmers (me among them) tend to use short
+        # literals like 0 and expect it to be automatically promoted to the
+        # right type, either at compile time or at runtime. This is a bad
+        # habit of mine that ended up consuming a full Saturday in order to
+        # figure out a bug.
+        #   
+        # Long story short: if this function is called from numpy.apply_along_axis,
+        # and the first value it returns is a 0 (and not 0.), apply_along_axis
+        # will assume you are building an integer matrix and round all floating
+        # point numbers returned next.
+        #
+        
+        I = self.p_int if np.linalg.norm(mod) <= .5 * self.p_diam else 0.
+    
+        return I
     
     def set_params(self, params):
         self.parse_dict(params)

@@ -29,6 +29,7 @@
 #
 
 from PIL import Image
+from ..common import FloatArray
 import numpy as np
 
 HARMONI_IMAGE_SAMPLER_OVERSAMPLING = 8
@@ -37,38 +38,25 @@ class ImageSampler:
     def _reset_ccd(self):
         self.ccd = np.zeros([self.cols, self.rows])
     
-    def _integrate_pixel(self, p_i, p_j):
-        px   = p_i * self.delta_x + self.x0 
-        py   = p_j * self.delta_y + self.y0
-        odx   = self.delta_x / self.oversampling
-        ody   = self.delta_y / self.oversampling
-        Ninv = 1. / (self.oversampling * self.oversampling)
+    def _integrate_pixel(self, ij):
+        Ninv = 1. / self.oversampling ** 2
         
-        #
-        # Sampling from CCD: using backward transformations
-        # TODO: Intensity is defined in energy units per unit time, so 
-        # in order to get true count, we must first define
-        #
-        # 1: Integration time
-        # 2: Frequency (so we can get true photon count)
-        # 
-        # Also, this is actually a Poisson process. We must actually drag these
-        # counts from a Poisson distribution. 
-        #
+        # The total number of coordinates will be ij.rows() x oversampling^2
+        # We can achieve this by repeating the coordinates inside ij 
+        # oversampling^2 times, and tiling the subpixel offsets ij.rows() times
         
-        j = 0
-        while j < self.oversampling:
-            i = 0
-            while i < self.oversampling:
-                self.ccd[p_j, p_i] += \
-                    Ninv * self.plane.get_intensity(
-                        self.model.get_transform().backward(
-                                x = self.finv * (px + i * odx), 
-                                y = self.finv * (py + j * ody))) 
+        p_xy = np.tile(self.xy, (ij.shape[0], 1))
         
-                i += 1
-            j += 1
-            
+        # Compute the position of the top left corner of each pixel
+        ij = np.repeat(ij, self.oversampling ** 2, 0)
+        
+        p_xy += self.finv * ij * [self.delta_x, self.delta_y] + [self.x0, self.y0]
+
+        # The full coordinate list is now just p_xy + o_xy
+        I = self.plane.get_intensity(self.model.get_transform().backward(p_xy))
+    
+        np.add.at(self.ccd, tuple(ij.transpose()), Ninv * I)
+        
     def __init__(self, plane, model):
         self.plane        = plane
         self.model        = model
@@ -84,19 +72,37 @@ class ImageSampler:
         self.x0      = -.5 * cols * delta_x
         self.y0      = -.5 * rows * delta_y
         self.finv    = finv
+        
+        osp = np.linspace(0, self.oversampling - 1, self.oversampling) * \
+            np.ones([self.oversampling, 1])
+        
+        odx  = self.delta_x / self.oversampling
+        ody  = self.delta_y / self.oversampling
+        
+        x = self.finv * osp.flatten() * odx
+        y = self.finv * osp.transpose().flatten() * ody
+    
+        self.xy = FloatArray.make([x, y]).transpose()
+        
         self._reset_ccd()
         
     def integrate(self):
         self._reset_ccd()
-        j = 0
-        while j < self.rows:
-            print("{0:.1f}%".format(np.floor(1000 * j / (self.rows - 1)) * .1), end = "\r") 
-            i = 0
-            while i < self.cols:
-                self._integrate_pixel(i, j)
-                i += 1
-            j += 1
-    
+        
+        i = np.linspace(0, self.cols - 1, self.cols)  * \
+            np.ones([self.rows, 1])
+        j = (np.linspace(0, self.rows - 1, self.rows) * \
+            np.ones([self.cols, 1])).transpose()
+        
+        # This is a size x 2 array containing all the pixel indices of the
+        # CCD.
+        
+        ij = np.array([i.flatten(), j.flatten()]).transpose().reshape(
+            self.rows * self.cols, 
+            2).astype(int)
+        
+        self._integrate_pixel(ij)
+        
     def save_to_file(self, path):
         # This square root is for representation purposes only. CCD stores 
         # something that is proportional to the gathered energy, while
