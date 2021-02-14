@@ -30,6 +30,7 @@
 
 from PIL import Image
 from ..common import FloatArray
+import multiprocessing
 import numpy as np
 import time
 
@@ -41,7 +42,7 @@ class ImageSampler:
     def _reset_ccd(self):
         self.ccd = np.zeros([self.cols, self.rows])
     
-    def _integrate_pixel(self, ij):
+    def _integrate_pixels(self, ij):
         Ninv = 1. / self.oversampling ** 2
         
         # The total number of coordinates will be ij.rows() x oversampling^2
@@ -66,6 +67,7 @@ class ImageSampler:
         self.model        = model
         self.oversampling = HARMONI_IMAGE_SAMPLER_OVERSAMPLING
         
+        self.set_parallel(True)
      
     def precalculate(self):
         osp = np.linspace(0, self.oversampling - 1, self.oversampling) * \
@@ -88,17 +90,25 @@ class ImageSampler:
            
     # Plate scale is always in radians per meter
     def set_detector_geometry(self, cols, rows, delta_x, delta_y, finv = 1):
-        self.cols    = cols
-        self.rows    = rows
-        self.delta_x = delta_x
-        self.delta_y = delta_y
-        self.x0      = -.5 * cols * delta_x
-        self.y0      = -.5 * rows * delta_y
-        self.finv    = finv
+        self.cols     = cols
+        self.rows     = rows
+        self.delta_x  = delta_x
+        self.delta_y  = delta_y
+        self.x0       = -.5 * cols * delta_x
+        self.y0       = -.5 * rows * delta_y
+        self.finv     = finv
         
         self.precalculate()
         
-    def integrate_slice(self, i_start, j_start):
+    def set_parallel(self, val):
+        self.parallel = val
+            
+    def integrate_slice(self, coords):
+        start = time.time()
+        
+        i_start = coords[0]
+        j_start = coords[1]
+        
         i_end = min(i_start + HARMONI_IMAGE_SAMPLER_SLICE_SIZE, self.cols)
         j_end = min(j_start + HARMONI_IMAGE_SAMPLER_SLICE_SIZE, self.rows)
         
@@ -115,26 +125,52 @@ class ImageSampler:
             i_len * j_len, 
             2).astype(int)
         
-        self._integrate_pixel(ij)
-    
-    def integrate(self):
-        self._reset_ccd()
-        delays = []
+        self._integrate_pixels(ij)
+        
+        return time.time() - start
+        
+    def integrate_parallel(self):
+        mppool = multiprocessing.Pool()
+        slices = []
         
         j = 0
         while j < self.rows:
             i = 0
             while i < self.cols:
-                
-                start = time.time()
-                self.integrate_slice(i, j)
-                delays.append(time.time() - start)
-                
+                slices.append((i, j))
                 i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
+        self.delays = mppool.map(self.integrate_slice, slices)
+        
+    def integrate_serial(self):
+        j = 0
+        while j < self.rows:
+            i = 0
+            while i < self.cols:
+                self.delays.append(self.integrate_slice((i, j)))
+                i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
+            j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
+        
+        
+    def integrate(self):
+        self._reset_ccd()
+        self.delays = []
+        
+        execution_start = time.time()
+    
+        if self.parallel:
+            self.integrate_parallel()
+        else:
+            self.integrate_serial()
+            
+        execution_end = time.time()
         # Return performance figures
-        return (len(delays), np.mean(delays), np.std(delays))
+        return (
+            len(self.delays), 
+            np.mean(self.delays), 
+            np.std(self.delays), 
+            execution_end - execution_start)
     
     def save_to_file(self, path):
         # This square root is for representation purposes only. CCD stores 

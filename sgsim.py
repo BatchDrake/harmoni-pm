@@ -64,6 +64,7 @@ class SGSimulator:
         
         self.sampler = ImageSampler(self.plane, self.model)
         
+        self.sampler.set_parallel(config["integrator.parallel"])
         self.sampler.set_oversampling(config["integrator.oversampling"])
         
         self.sampler.set_detector_geometry(
@@ -90,20 +91,22 @@ class SGSimulator:
             config["integrator.oversampling"],
             config["integrator.oversampling"],
             config["integrator.oversampling"] ** 2))
+        print("  Parallelize: {0}".format(
+            "yes" if config["integrator.parallel"] else "no"))
         print("  Output file: {0}".format(config["artifacts.output"]))
         print("  ")
         
     def run(self):
-        performance = self.sampler.integrate()
+        perf = self.sampler.integrate()
         self.sampler.save_to_file(self.config["artifacts.output"])
-        return (performance[0], ufloat(performance[1], performance[2]))
+        return (perf[0], ufloat(perf[1], perf[2]), perf[3])
 
 def config_from_cli():
     config = Configuration()
     
     parser = argparse.ArgumentParser(
         description = "Simulate HARMONI's optics as projected in a CCD")
-
+    
     parser.add_argument(
         "--output",
         dest = "output",
@@ -172,6 +175,13 @@ def config_from_cli():
         default = 8,
         help = "set oversampling per pixel dimension (default: 8)")
     
+    parser.add_argument(
+        "--parallel",
+        dest = "parallel",
+        default = False,
+        action = 'store_true',
+        help = "enable parallelization (default: false)")
+    
     args = parser.parse_args()
     
     if args.output is None:
@@ -183,6 +193,7 @@ def config_from_cli():
     config["source.plane"] = args.source
     
     config["integrator.oversampling"] = args.oversampling
+    config["integrator.parallel"] = args.parallel
     
     config["ccd.width"] = args.width
     config["ccd.height"] = args.height
@@ -210,11 +221,13 @@ try:
     sim.print_summary()
     
     print("Tracing...")
-    slices, rt = sim.run()
-    print("Done ({0} slices, {1} s per slice)".format(
+    slices, rt, tt = sim.run()
+    
+    print("{0} slices, {1} s per slice".format(
         slices, 
         str(rt).replace("+/-", "±")))
-
+    print("Total execution time: {0} s".format(round(tt, 2)))
+    
 except Exception as e:
     print("\033[1mSimulator exception: {0}\033[0m".format(e))
     print()
