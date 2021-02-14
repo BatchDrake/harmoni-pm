@@ -30,3 +30,4 @@
 
 from .array import FloatArray
 from .configuration import Configuration
+from .quantity_type import QuantityType

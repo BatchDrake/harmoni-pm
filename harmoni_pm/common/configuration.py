@@ -133,6 +133,11 @@ class Configuration:
         self.sections = {}
         
     def have(self, name):
+        section, key = self.parse_key(name)
+        
+        return self.have_section(section) and self.sections[section].have(key)
+    
+    def have_section(self, name):
         return name in self.sections
     
     def parse_key(self, name):
@@ -147,16 +152,17 @@ class Configuration:
         return (section, key)
     
     def upsert_section(self, section):
-        if not self.have(section):
+        if not self.have_section(section):
             self.sections[section] = Section(section)
             
         return self.sections[section]
     
     def get(self, name):
         section, key = self.parse_key(name)            
-        s = self.upsert_section(section)
+        if not self.have_section(section):
+            return None
         
-        return s.get(key)
+        return self.sections[section].get(key)
     
     def set(self, name, value):
         section, key = self.parse_key(name)            
@@ -164,6 +170,12 @@ class Configuration:
         
         s.set(key, value)
     
+    def __getitem__(self, key):
+        return self.get(key)
+    
+    def __setitem__(self, key, value):
+        self.set(key, value)
+        
     def parse(self, name, asstr):
         section, key = self.parse_key(name)            
         s = self.upsert_section(section)

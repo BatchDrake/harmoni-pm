@@ -43,23 +43,23 @@ HARMONI_GCU_MASK_DIAMETER    = 400e-3 # m
 
 class GCUImagePlane(ImagePlane):        
     def _extract_params(self):
-        self.p_sep      = self.params.get("point.separation")
-        self.p_diam     = self.params.get("point.diameter")
-        self.p_int      = self.params.get("point.intensity")
-        self.m_p0       = FloatArray.make(
-            [self.params.get("mask.x0"), self.params.get("mask.y0")])
-        self.m_diameter = self.params.get("mask.diameter")
+        self.p_sep      = self.params["point.separation"]
+        self.p_diam     = self.params["point.diameter"]
+        self.p_int      = self.params["point.intensity"]
+        self.m_diameter = self.params["mask.diameter"]
+        
+        self.m_p0       = FloatArray.make([self.params["mask.x0"], self.params["mask.y0"]])
         
     def __init__(self, params = None):
         super().__init__()
         self.params = Configuration()
         
-        self.params.set("point.separation", HARMONI_GCU_POINT_SEPARATION)
-        self.params.set("point.diameter",   HARMONI_GCU_POINT_DIAMETER)
-        self.params.set("point.intensity",  HARMONI_GCU_POINT_INTENSITY)
-        self.params.set("mask.x0",          HARMONI_GCU_MASK_X0)
-        self.params.set("mask.y0",          HARMONI_GCU_MASK_Y0)
-        self.params.set("mask.diameter",    HARMONI_GCU_MASK_DIAMETER)
+        self.params["point.separation"] = HARMONI_GCU_POINT_SEPARATION
+        self.params["point.diameter"]   = HARMONI_GCU_POINT_DIAMETER
+        self.params["point.intensity"]  = HARMONI_GCU_POINT_INTENSITY
+        self.params["mask.x0"]          = HARMONI_GCU_MASK_X0
+        self.params["mask.y0"]          = HARMONI_GCU_MASK_Y0
+        self.params["mask.diameter"]    = HARMONI_GCU_MASK_DIAMETER
      
         if params is not None:
             self._copy_params(params)
@@ -100,7 +100,7 @@ class GCUImagePlane(ImagePlane):
         return self.p_int * (np.linalg.norm(mod, axis = 1) <= .5 * self.p_diam)
     
     def _get_intensity(self, xy):
-        return self._get_intensity_matrix([xy])[0]
+        return self.get_intensity_from_matrix(xy)
     
     def set_params(self, params):
         self.parse_dict(params)

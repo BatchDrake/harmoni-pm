@@ -31,6 +31,9 @@
 from PIL import Image
 from ..common import FloatArray
 import numpy as np
+import time
+
+HARMONI_IMAGE_SAMPLER_SLICE_SIZE   = 128
 
 HARMONI_IMAGE_SAMPLER_OVERSAMPLING = 8
 
@@ -50,7 +53,8 @@ class ImageSampler:
         # Compute the position of the top left corner of each pixel
         ij = np.repeat(ij, self.oversampling ** 2, 0)
         
-        p_xy += self.finv * ij * [self.delta_x, self.delta_y] + [self.x0, self.y0]
+        p_xy += self.finv * (
+            ij * [self.delta_x, self.delta_y] + [self.x0, self.y0])
 
         # The full coordinate list is now just p_xy + o_xy
         I = self.plane.get_intensity(self.model.get_transform().backward(p_xy))
@@ -62,17 +66,8 @@ class ImageSampler:
         self.model        = model
         self.oversampling = HARMONI_IMAGE_SAMPLER_OVERSAMPLING
         
-        
-    # Plate scale is always in radians per unit length
-    def set_detector_geometry(self, cols, rows, delta_x, delta_y, finv = 1):
-        self.cols    = cols
-        self.rows    = rows
-        self.delta_x = delta_x
-        self.delta_y = delta_y
-        self.x0      = -.5 * cols * delta_x
-        self.y0      = -.5 * rows * delta_y
-        self.finv    = finv
-        
+     
+    def precalculate(self):
         osp = np.linspace(0, self.oversampling - 1, self.oversampling) * \
             np.ones([self.oversampling, 1])
         
@@ -86,23 +81,61 @@ class ImageSampler:
         
         self._reset_ccd()
         
-    def integrate(self):
-        self._reset_ccd()
+    def set_oversampling(self, oversampling):
+        if oversampling != self.oversampling:
+            self.oversampling = oversampling
+            self.precalculate()
+           
+    # Plate scale is always in radians per meter
+    def set_detector_geometry(self, cols, rows, delta_x, delta_y, finv = 1):
+        self.cols    = cols
+        self.rows    = rows
+        self.delta_x = delta_x
+        self.delta_y = delta_y
+        self.x0      = -.5 * cols * delta_x
+        self.y0      = -.5 * rows * delta_y
+        self.finv    = finv
         
-        i = np.linspace(0, self.cols - 1, self.cols)  * \
-            np.ones([self.rows, 1])
-        j = (np.linspace(0, self.rows - 1, self.rows) * \
-            np.ones([self.cols, 1])).transpose()
+        self.precalculate()
+        
+    def integrate_slice(self, i_start, j_start):
+        i_end = min(i_start + HARMONI_IMAGE_SAMPLER_SLICE_SIZE, self.cols)
+        j_end = min(j_start + HARMONI_IMAGE_SAMPLER_SLICE_SIZE, self.rows)
+        
+        i_len = i_end - i_start
+        j_len = j_end - j_start
+        
+        i = np.linspace(i_start, i_end - 1, i_len)  *  np.ones([i_len, 1])
+        j = (np.linspace(j_start, j_end - 1, j_len) *  np.ones([j_len, 1])).transpose()
         
         # This is a size x 2 array containing all the pixel indices of the
         # CCD.
         
         ij = np.array([i.flatten(), j.flatten()]).transpose().reshape(
-            self.rows * self.cols, 
+            i_len * j_len, 
             2).astype(int)
         
         self._integrate_pixel(ij)
+    
+    def integrate(self):
+        self._reset_ccd()
+        delays = []
         
+        j = 0
+        while j < self.rows:
+            i = 0
+            while i < self.cols:
+                
+                start = time.time()
+                self.integrate_slice(i, j)
+                delays.append(time.time() - start)
+                
+                i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
+            j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
+        
+        # Return performance figures
+        return (len(delays), np.mean(delays), np.std(delays))
+    
     def save_to_file(self, path):
         # This square root is for representation purposes only. CCD stores 
         # something that is proportional to the gathered energy, while

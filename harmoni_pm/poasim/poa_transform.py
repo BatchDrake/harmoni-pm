@@ -34,7 +34,7 @@ from ..common import FloatArray
 import numpy as np
 
 HARMONI_POA_FIELD_RADIUS  = 5 # Random value
-HARMONI_POA_ARM_RADIUS    = 5   # Random value
+HARMONI_POA_ARM_RADIUS    = 5 # Random value
 HARMONI_POA_MAGNIFICATION = 1
 
 class POATransform(Transform):

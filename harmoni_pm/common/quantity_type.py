@@ -28,29 +28,31 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..transform import CompositeTransform
-from ..poasim import POATransform
-from ..common import Configuration
-from  .fprs_transform import FPRSTransform
+import argparse
+from pint import UnitRegistry
 
-class OpticalModel:
-    def __init__(self):
-        self.description = Configuration()
+Q = UnitRegistry().Quantity
+
+class QuantityType(object):
+    def __init__(self, base_units, value = 0):
+        self.units = base_units
+        self.value = Q(value, self.units)
         
-        self.fprs_transform = FPRSTransform()
-        self.poa_transform = POATransform(0, 0)
-        self.transform = CompositeTransform()
+    def __call__(self, asstr):
+        try:
+            quantity = Q(asstr)
+            self.value = quantity.to(self.units)
+            return self
+        except:
+            raise argparse.ArgumentTypeError(
+                "{0} is not a quantity that can be converted to {1}s".format(
+                    asstr, 
+                    self.units))
         
-        self.transform.push_back(self.poa_transform)
-        
-    def load_description(self, path):
-        pass
+    def __getitem__(self, key):
+        return self.value.to(key).magnitude
     
-    def get_transform(self):
-        return self.transform
+    def __setitem__(self, key, value):
+        quantity = Q(value, key)
+        self.value = quantity.to(self.units)
     
-    def move_to(self, theta, phi):
-        self.poa_transform.set_axis_angles(theta, phi)
-    
-    def generate(self):
-        self.transform.generate()

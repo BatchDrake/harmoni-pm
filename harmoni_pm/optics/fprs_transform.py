@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,29 +28,24 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..transform import CompositeTransform
-from ..poasim import POATransform
-from ..common import Configuration
-from  .fprs_transform import FPRSTransform
+from ..transform import Transform
 
-class OpticalModel:
+HARMONI_FPRS_TRANSFORM_FOCAL_LENGTH = 1 # m
+
+class FPRSTransform(Transform):
     def __init__(self):
-        self.description = Configuration()
-        
-        self.fprs_transform = FPRSTransform()
-        self.poa_transform = POATransform(0, 0)
-        self.transform = CompositeTransform()
-        
-        self.transform.push_back(self.poa_transform)
-        
-    def load_description(self, path):
         pass
+        
+    def _forward_matrix(self, p):
+        return p * HARMONI_FPRS_TRANSFORM_FOCAL_LENGTH
     
-    def get_transform(self):
-        return self.transform
+    def _forward(self, p):
+        return p * HARMONI_FPRS_TRANSFORM_FOCAL_LENGTH
     
-    def move_to(self, theta, phi):
-        self.poa_transform.set_axis_angles(theta, phi)
+    def _backward_matrix(self, p):
+        return p / HARMONI_FPRS_TRANSFORM_FOCAL_LENGTH
     
-    def generate(self):
-        self.transform.generate()
+    def _backward(self, p):
+        return p / HARMONI_FPRS_TRANSFORM_FOCAL_LENGTH
+
+    
