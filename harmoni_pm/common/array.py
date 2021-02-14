@@ -30,7 +30,7 @@
 
 import numpy as np
 
-ARRAY_TYPE = 'float64'
+ARRAY_TYPE = 'float32'
 
 class FloatArray(np.ndarray):
     def __new__(
