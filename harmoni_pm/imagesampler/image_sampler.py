@@ -30,7 +30,7 @@
 
 from PIL import Image
 from ..common import FloatArray
-import multiprocessing
+import concurrent.futures
 import numpy as np
 import time
 
@@ -42,7 +42,7 @@ class ImageSampler:
     def _reset_ccd(self):
         self.ccd = np.zeros([self.cols, self.rows])
     
-    def _sample_pixels(self, ij):
+    def _integrate_pixels(self, ij):
         Ninv = 1. / self.oversampling ** 2
         
         # The total number of coordinates will be ij.rows() x oversampling^2
@@ -60,7 +60,7 @@ class ImageSampler:
         # The full coordinate list is now just p_xy + o_xy
         I = self.plane.get_intensity(self.model.get_transform().backward(p_xy))
     
-        return (ij, Ninv * I)
+        np.add.at(self.ccd, tuple(ij.transpose()), Ninv * I)
     
     def __init__(self, plane, model):
         self.plane        = plane
@@ -103,7 +103,7 @@ class ImageSampler:
     def set_parallel(self, val):
         self.parallel = val
             
-    def _sample_slice(self, coords):
+    def _integrate_slice(self, coords):
         start = time.time()
         
         i_start = coords[0]
@@ -125,14 +125,15 @@ class ImageSampler:
             i_len * j_len, 
             2).astype(int)
         
-        ij, I = self._sample_pixels(ij)
+        self._integrate_pixels(ij)
         
-        return (ij, I, time.time() - start)
+        return time.time() - start
 
     def integrate_parallel(self):
-        mppool = multiprocessing.Pool()
         slices = []
         
+        # Prepare list of slices
+        # TODO: remove loops
         j = 0
         while j < self.rows:
             i = 0
@@ -141,28 +142,16 @@ class ImageSampler:
                 i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
-        results = mppool.map(self._sample_slice, slices)
-        
-        i = 0
-        while i < len(results):
-            np.add.at(
-                self.ccd, 
-                tuple(results[i][0].transpose()),
-                results[i][1])
-            self.delays.append(results[i][2])
-            i += 1
+        # Spawn threads
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+            self.delays = list(executor.map(self._integrate_slice, slices))
         
     def integrate_serial(self):
         j = 0
         while j < self.rows:
             i = 0
             while i < self.cols:
-                result = self._sample_slice((i, j))
-                np.add.at(
-                    self.ccd, 
-                    tuple(result[0].transpose()),
-                    result[1])
-                self.delays.append(result[2])
+                self.delays.append(self._integrate_slice((i, j)))
                 i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
