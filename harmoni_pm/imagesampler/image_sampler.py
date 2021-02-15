@@ -42,7 +42,7 @@ class ImageSampler:
     def _reset_ccd(self):
         self.ccd = np.zeros([self.cols, self.rows])
     
-    def _integrate_pixels(self, ij):
+    def _sample_pixels(self, ij):
         Ninv = 1. / self.oversampling ** 2
         
         # The total number of coordinates will be ij.rows() x oversampling^2
@@ -60,8 +60,8 @@ class ImageSampler:
         # The full coordinate list is now just p_xy + o_xy
         I = self.plane.get_intensity(self.model.get_transform().backward(p_xy))
     
-        np.add.at(self.ccd, tuple(ij.transpose()), Ninv * I)
-        
+        return (ij, Ninv * I)
+    
     def __init__(self, plane, model):
         self.plane        = plane
         self.model        = model
@@ -103,7 +103,7 @@ class ImageSampler:
     def set_parallel(self, val):
         self.parallel = val
             
-    def integrate_slice(self, coords):
+    def _sample_slice(self, coords):
         start = time.time()
         
         i_start = coords[0]
@@ -125,10 +125,10 @@ class ImageSampler:
             i_len * j_len, 
             2).astype(int)
         
-        self._integrate_pixels(ij)
+        ij, I = self._sample_pixels(ij)
         
-        return time.time() - start
-        
+        return (ij, I, time.time() - start)
+
     def integrate_parallel(self):
         mppool = multiprocessing.Pool()
         slices = []
@@ -141,14 +141,28 @@ class ImageSampler:
                 i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
-        self.delays = mppool.map(self.integrate_slice, slices)
+        results = mppool.map(self._sample_slice, slices)
+        
+        i = 0
+        while i < len(results):
+            np.add.at(
+                self.ccd, 
+                tuple(results[i][0].transpose()),
+                results[i][1])
+            self.delays.append(results[i][2])
+            i += 1
         
     def integrate_serial(self):
         j = 0
         while j < self.rows:
             i = 0
             while i < self.cols:
-                self.delays.append(self.integrate_slice((i, j)))
+                result = self._sample_slice((i, j))
+                np.add.at(
+                    self.ccd, 
+                    tuple(result[0].transpose()),
+                    result[1])
+                self.delays.append(result[2])
                 i += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
