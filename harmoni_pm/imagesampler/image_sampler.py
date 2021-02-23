@@ -143,7 +143,7 @@ class ImageSampler:
             j += HARMONI_IMAGE_SAMPLER_SLICE_SIZE
         
         # Spawn threads
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers = 20) as executor:
             self.delays = list(executor.map(self._integrate_slice, slices))
         
     def integrate_serial(self):
