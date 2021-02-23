@@ -48,12 +48,14 @@ Convenience subclass of `numpy.ndarray` with helper methods that ensures all arr
  This class also provides a unified way to define tensors in `harmoni-pm`
 <p />
 <p />
+
 ```python
 FloatArray.__init__(shape, buffer = None, offset = 0, strides = None, order = None)
 ```
 Constructor of `FloatArray`. Parameters are that of the underlying `numpy.ndarray` constructor with `dtype` set to `ARRAY_TYPE`.
 <p />
 <p />
+
 ```python
 @staticmethod
 FloatArray.make(lst)
@@ -61,6 +63,7 @@ FloatArray.make(lst)
 Factory method that instantiates a `FloatArray` from a given Python list or tuple specified by `lst`. This `lst` is passed directly to the underlying `numpy.ndarray` constructor, and therefore the usual list/tuple - `numpy.ndarray` conversion rules apply.
 <p />
 <p />
+
 ```python
 @staticmethod
 FloatArray.compatible_with(arr)
@@ -93,48 +96,56 @@ class Transform()
 This is the abstract class from which all other coordinate transforms are derived. If instatiated directly, it represents the identity transform. Transforms accept tuples of the form $(x, y)$ or $N\times2$ `FloatArray` arrays representing sets of $N$ coordinates.
 <p />
 <p />
+
 ```python
 Transform._forward(xy)
 ```
 Protected method that computes the forward transform over the `ARRAY_TYPE` tuple `xy` and returns a $1\times2$ `FloatArray` containing the transformed coordinates. Non-trivial derivations of `Transform` must override at least `_forward` and `_backward`.
 <p />
 <p />
+
 ```python
 Transform._backward(xy)
 ```
 Protected method that computes the backward transform over the `ARRAY_TYPE` tuple `xy` and returns a $1\times2$ `FloatArray` containing the transformed coordinates. Non-trivial derivations of `Transform` must override at least `_forward` and `_backward`.
 <p />
 <p />
+
 ```python
 Transform._forward_matrix(matrix)
 ```
 Protected method that performs $N$ forward coordinate transforms all at once over the coordinate list `matrix` in the form of a $N\times2$ `FloatArray` and returns the transformed coordinate list as another $N\times2$ `FloatArray`. If not overriden by the subclass, this method simply applies `_forward` along the $N$ rows of `matrix`.
 <p />
 <p />
+
 ```python
 Transform._backward_matrix(matrix)
 ```
 Protected method that performs $N$ backward coordinate transforms all at once over the coordinate list `matrix` in the form of a $N\times2$ `FloatArray` and returns the transformed coordinate list as another $N\times2$ `FloatArray`. If not overriden by the subclass, this method simply applies `_backward` along the $N$ rows of `matrix`.
 <p />
 <p />
+
 ```python
 Transform.forward(xy = None, x = None, y = None)
 ```
 Public method that performs a forward transform, accepting either two scalar coordinates `x` and `y` or a tuple / `FloarArray` of coordinates in `xy`. The method automatically determines whether to use `_forward` of `_forward_matrix` according to the arguments passed to it.
 <p />
 <p />
+
 ```python
 Transform.backward(xy = None, x = None, y = None)
 ```
 Public method that performs a forward transform, accepting either two scalar coordinates `x` and `y` or a tuple / `FloarArray` of coordinates in `xy`. The method automatically determines whether to use `_backward` of `_backward_matrix` according to the arguments passed to it.
 <p />
 <p />
+
 ```python
 Transform.generate()
 ```
 In case the transform is derived from a set of parameters with uncertainties (e.g. mechanical tolerances, misalignments, precission limits in measurements), this method is called during Monte Carlo testing to initialize the specific transform parameters by drawing a sample from each parameter distribution.
 <p />
 <p />
+
 ```python
 Transform.reset()
 ```
@@ -153,6 +164,7 @@ CompositeTransform.push_front(T)
 Puts the transform `T` in the frontmost position of the transform chain, becoming the first transform to be computed in the forward direction.
 <p />
 <p />
+
 ```python
 CompositeTransform.push_front(T)
 ```
@@ -175,30 +187,35 @@ TransformTester.__init__(T)
 Constructor for `TransformTester`. The argument `T` is the `Transform` object to be tested.
 <p />
 <p />
+
 ```python
 TransformTester.generate_stars(ra, dec, ra_width, dec_width, maglimit)
 ```
 Initializes the departure coordinates from a set of stars in the sky enclosed in a rectangle centered in right ascension `ra` and declination `dec`, and dimensions `ra_width x dec_width` (both of them in degrees) up to magnitude `maglimit`. Right ascension is encoded in the $x$ coordinate and declination in the $y$ coordinate.
 <p />
 <p />
+
 ```python
 TransformTester.generate_points(width, height, delta_x, delta_y)
 ```
 Initializes the departure coordinates from a set of equally spaced points, assuming a rectangle of size `width x height` with a `delta_x` separation in the horizontal dimension and `delta_y` separation in the vertical dimension.
 <p />
 <p />
+
 ```python
 TransformTester.forward()
 ```
 Applies the transform `T` to the current coordinates in the forward direction and replaces them by the result of the transform.
 <p />
 <p />
+
 ```python
 TransformTester.backward()
 ```
 Applies the transform `T`to the current coordinates in the forward direction and replaces them by the result of the transform.
 <p />
 <p />
+
 ```python
 TransformTester.backfeed()
 ```
@@ -211,6 +228,7 @@ TransformTester.sample()
 Call `T.generate()` in order to sample the parameter distribution of the transform.
 <p />
 <p />
+
 ```python
 TransformTester.distortion_rms()
 ```
@@ -223,6 +241,7 @@ $$
 With $(x_i, y_i)$ the departure coordinates and $(\tilde{x}_i,\tilde{y}_i)$ the current (potentially transformed) coordinates.
 <p />
 <p />
+
 ```python
 TransformTester.save_to_image(path)
 ```
