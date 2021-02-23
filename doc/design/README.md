@@ -177,8 +177,7 @@ class TransformTester()
 ```
 As new transforms are expected to be implemented in the future, a tester class `TransformTester` with transform debugging functions is provided. `TransformTester` is instantiated from a given transform $T$ generates a set of coordinates, either from a regular grid or a set of stars in the sky up to certain visual magnitude. Then, these coordinates can be transformed multiple times in both directions by applying $T$ through the tester API. Finally, the tester API also allows the user to measure how much the resulting coordinates deviate from the departure coordinates and produce image files representing these deviations. 
 
-<center><img src="BrownConradyTransform-distorted.png"  width="300" /><img src="ScaleTransform-distorted.
-png"  width="300" />
+<center><img src="BrownConradyTransform-distorted.png"  width="300" /><img src="ScaleTransform-distorted.png"  width="300" />
 <small><em>Images produced by `TransformTester` using a regular grid of points (left) and stars in the sky (right)</em></small></center>
 
 ```python
