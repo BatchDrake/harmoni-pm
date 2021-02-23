@@ -38,7 +38,7 @@ class CompositeTransform(Transform):
     def push_back(self, transform):
         self.transforms.append(transform)
         
-    def push_forward(self, transform):
+    def push_front(self, transform):
         self.transforms.prepend(transform)
     
     def forward(self, xy = None, x = None, y = None):
