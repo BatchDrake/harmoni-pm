@@ -76,8 +76,8 @@ class ImageSampler:
         odx  = self.delta_x / self.oversampling
         ody  = self.delta_y / self.oversampling
         
-        x = self.finv * osp.flatten() * odx
-        y = self.finv * osp.transpose().flatten() * ody
+        x = self.finv * osp.flatten() * odx + .5 * odx
+        y = self.finv * osp.transpose().flatten() * ody + .5 * ody
     
         self.xy = FloatArray.make([x, y]).transpose()
         
