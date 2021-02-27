@@ -2693,7 +2693,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Ol+rpNCgeso="
 									},
-									"name": "xy"
+									"name": "xy",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -2701,7 +2702,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Ol+rpNCgeso="
 									},
-									"name": "x"
+									"name": "x",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -2730,7 +2732,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OmAYZdCrJoc="
 									},
-									"name": "xy"
+									"name": "xy",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -2738,7 +2741,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OmAYZdCrJoc="
 									},
-									"name": "x"
+									"name": "x",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -4296,7 +4300,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OmKf7ND85zc="
 									},
-									"name": "k1"
+									"name": "k1",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -4551,7 +4556,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Omh29dJ9B4E="
 									},
-									"name": "width"
+									"name": "width",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -4559,7 +4565,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Omh29dJ9B4E="
 									},
-									"name": "height"
+									"name": "height",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -4567,7 +4574,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Omh29dJ9B4E="
 									},
-									"name": "delta_x"
+									"name": "delta_x",
+									"type": ""
 								},
 								{
 									"_type": "UMLParameter",
@@ -4575,7 +4583,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Omh29dJ9B4E="
 									},
-									"name": "delta_y"
+									"name": "delta_y",
+									"type": ""
 								}
 							]
 						},
@@ -4653,7 +4662,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Omv2UtNyI/o="
 									},
-									"name": "path"
+									"name": "path",
+									"type": ""
 								}
 							]
 						}
@@ -5695,7 +5705,18 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OnD8ZdTTdUU="
 							},
-							"name": "loadDescription"
+							"name": "load_description",
+							"parameters": [
+								{
+									"_type": "UMLParameter",
+									"_id": "AAAAAAF320cQTa7H2BY=",
+									"_parent": {
+										"$ref": "AAAAAAF2OnvZyddwEac="
+									},
+									"name": "path",
+									"type": ""
+								}
+							]
 						},
 						{
 							"_type": "UMLOperation",
@@ -5703,7 +5724,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OnD8ZdTTdUU="
 							},
-							"name": "getTransform"
+							"name": "get_transform"
 						},
 						{
 							"_type": "UMLOperation",
@@ -5711,7 +5732,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OnD8ZdTTdUU="
 							},
-							"name": "moveTo",
+							"name": "move_to",
 							"parameters": [
 								{
 									"_type": "UMLParameter",
@@ -5719,8 +5740,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OnyKv9d/IiA="
 									},
-									"name": "theta",
-									"type": ""
+									"name": "theta"
 								},
 								{
 									"_type": "UMLParameter",
@@ -5728,8 +5748,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OnyKv9d/IiA="
 									},
-									"name": "phi",
-									"type": ""
+									"name": "phi"
 								}
 							]
 						},
@@ -5881,7 +5900,7 @@
 											"top": 304,
 											"width": 191,
 											"height": 13,
-											"text": "+loadDescription()",
+											"text": "+load_description(path)",
 											"horizontalAlignment": 0
 										},
 										{
@@ -5898,7 +5917,7 @@
 											"top": 319,
 											"width": 191,
 											"height": 13,
-											"text": "+getTransform()",
+											"text": "+get_transform()",
 											"horizontalAlignment": 0
 										},
 										{
@@ -5915,7 +5934,7 @@
 											"top": 334,
 											"width": 191,
 											"height": 13,
-											"text": "+moveTo(theta, phi)",
+											"text": "+move_to(theta, phi)",
 											"horizontalAlignment": 0
 										},
 										{
@@ -8697,7 +8716,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OnoMZNb6Jc8="
 									},
-									"name": "transform"
+									"name": "transform",
+									"type": ""
 								}
 							]
 						},
@@ -8715,7 +8735,8 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OnpCSdcoXxk="
 									},
-									"name": "transform"
+									"name": "transform",
+									"type": ""
 								}
 							]
 						}
@@ -8899,7 +8920,7 @@
 											"top": 168,
 											"width": 206,
 											"height": 13,
-											"text": "+getIntensity(real x, real y) {query}",
+											"text": "+get_intensity(real x, real y) {query}",
 											"horizontalAlignment": 0
 										}
 									],
@@ -10298,7 +10319,7 @@
 											"top": 415,
 											"width": 198,
 											"height": 13,
-											"text": "+saveToFile(path)",
+											"text": "+save_to_file(path)",
 											"horizontalAlignment": 0
 										},
 										{
@@ -10315,7 +10336,7 @@
 											"top": 430,
 											"width": 198,
 											"height": 13,
-											"text": "+loadFromFile(path)",
+											"text": "+load_from_file(path)",
 											"horizontalAlignment": 0
 										},
 										{
@@ -10332,7 +10353,7 @@
 											"top": 445,
 											"width": 198,
 											"height": 13,
-											"text": "+setSpecs(specs)",
+											"text": "+set_params(params)",
 											"horizontalAlignment": 0
 										}
 									],
@@ -11082,7 +11103,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OoDoMtz+ZSw="
 							},
-							"name": "getIntensity",
+							"name": "get_intensity",
 							"parameters": [
 								{
 									"_type": "UMLParameter",
@@ -11090,8 +11111,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OoFN/90pJjs="
 									},
-									"name": "real x",
-									"type": ""
+									"name": "real x"
 								},
 								{
 									"_type": "UMLParameter",
@@ -11099,8 +11119,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OoFN/90pJjs="
 									},
-									"name": "real y",
-									"type": ""
+									"name": "real y"
 								}
 							],
 							"isQuery": true,
@@ -11458,7 +11477,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OouI/+CKdBY="
 							},
-							"name": "saveToFile",
+							"name": "save_to_file",
 							"parameters": [
 								{
 									"_type": "UMLParameter",
@@ -11466,8 +11485,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2OowfW+D33A4="
 									},
-									"name": "path",
-									"type": ""
+									"name": "path"
 								}
 							]
 						},
@@ -11477,7 +11495,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OouI/+CKdBY="
 							},
-							"name": "loadFromFile",
+							"name": "load_from_file",
 							"parameters": [
 								{
 									"_type": "UMLParameter",
@@ -11485,8 +11503,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2Oow/fOEh5i0="
 									},
-									"name": "path",
-									"type": ""
+									"name": "path"
 								}
 							]
 						},
@@ -11496,7 +11513,7 @@
 							"_parent": {
 								"$ref": "AAAAAAF2OouI/+CKdBY="
 							},
-							"name": "setSpecs",
+							"name": "set_params",
 							"parameters": [
 								{
 									"_type": "UMLParameter",
@@ -11504,8 +11521,7 @@
 									"_parent": {
 										"$ref": "AAAAAAF2PjrbYOb5jGg="
 									},
-									"name": "specs",
-									"type": ""
+									"name": "params"
 								}
 							]
 						}
