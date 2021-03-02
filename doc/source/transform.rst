@@ -6,13 +6,6 @@ Something as simple as a telescope with a given focal length can be modeled as a
 
 .. image:: _static/transform.png
 
-Transforms are bi-directional, with the forward direction being that that transforms object plane coordinates into image plane coordinates, and the backward direction that that transforms image plane coordinates into object plane coordinates. Although theoretically :math:`T_b=T_f^{-1}` and therefore :math:`T_b\circ T_f=\mathbb I`, this is rarely achievable in the real world. In practical terms, it is required that the composition of the same transform in both backward and forward directions equals the identity transform up to certain (hopefully small) numerical error:
-
-.. math::
-
-   T_f\circ T_b=\mathbb I+e_{fb}
-
-
 .. class:: Transform
 
    This is the abstract class from which all other coordinate transforms are derived. If instatiated directly, it represents the identity transform. Transforms accept tuples of the form :math:`(x, y)` or :math:`N\times2` `FloatArray` arrays representing sets of :math:`N` coordinates.

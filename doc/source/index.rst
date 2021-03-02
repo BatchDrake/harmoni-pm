@@ -11,9 +11,10 @@ This document intends to be the reference guide for :code:`harmoni-pm` internals
    :maxdepth: 3
 
    overview
+   theoretical
    architecture
    license
-   help
+
 
 
 
