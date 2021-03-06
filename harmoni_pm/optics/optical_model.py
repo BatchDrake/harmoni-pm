@@ -32,20 +32,43 @@ from ..transform import CompositeTransform
 from ..poasim import POATransform
 from ..common import Configuration
 from  .fprs_transform import FPRSTransform
+from numpy import exp
 
+HARMONI_FPRS_APERTURE   = 1. # Meters
+HARMONI_FPRS_TAU        = 0. # Dimensionless
+ 
 class OpticalModel:
+    def _extract_params(self):
+        self.fprs_atten    = exp(-self.params["fprs.tau"])
+        self.fprs_aperture = self.params["fprs.aperture"]
+    
+    def _init_configuration(self):
+        self.params = Configuration()
+        
+        self.params["fprs.aperture"] = HARMONI_FPRS_APERTURE 
+        self.params["fprs.tau"]      = HARMONI_FPRS_TAU
+        
+        self._extract_params()
+        
     def __init__(self):
-        self.description = Configuration()
+        self._init_configuration()
         
         self.fprs_transform = FPRSTransform()
         self.poa_transform = POATransform(0, 0)
         self.transform = CompositeTransform()
         
         self.transform.push_back(self.poa_transform)
-        
-    def load_description(self, path):
-        pass
     
+    def intensity_to_flux(self):
+        return self.fprs_aperture * self.fprs_atten
+     
+    def load_description(self, path):
+        self.params.load(path)
+        self._extract_params()
+        
+    def save_description(self, path):
+        self.params.write(path)
+        
     def get_transform(self):
         return self.transform
     

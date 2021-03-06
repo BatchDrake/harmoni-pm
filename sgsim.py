@@ -94,12 +94,24 @@ class SGSimulator:
             config["integrator.oversampling"] ** 2))
         print("  Parallelize: {0}".format(
             "yes" if config["integrator.parallel"] else "no"))
+        
+        if config["ccd.exposition"] > 0:
+            print("  Exposition time: {0} s".format(config["ccd.exposition"]))
+            
         print("  Output file: {0}".format(config["artifacts.output"]))
         print("  ")
         
     def run(self):
         perf = self.sampler.integrate()
-        self.sampler.save_to_file(self.config["artifacts.output"])
+        
+        dt = None
+        if self.config["ccd.exposition"] > 0:
+            dt = self.config["ccd.exposition"]
+            
+        self.sampler.save_to_file(
+            self.config["artifacts.output"], 
+            delta_t = dt)
+            
         return (perf[0], ufloat(perf[1], perf[2]), perf[3])
 
 def config_from_cli():
@@ -109,12 +121,14 @@ def config_from_cli():
         description = "Simulate HARMONI's optics as projected in a CCD")
     
     parser.add_argument(
+        "-o",
         "--output",
         dest = "output",
         default = None,
         help = "set the output PNG file name (default: generate from options)")
     
     parser.add_argument(
+        "-W",
         "--width",
         dest = "width",
         type = int,
@@ -122,6 +136,7 @@ def config_from_cli():
         help = "set CCD's width in pixels")
     
     parser.add_argument(
+        "-H",
         "--height",
         dest = "height",
         type = int,
@@ -143,6 +158,7 @@ def config_from_cli():
         help = "set pixel height")
     
     parser.add_argument(
+        "-f",
         "--focal-length",
         dest = "focal_length",
         type = QuantityType("meter"),
@@ -150,12 +166,14 @@ def config_from_cli():
         help = "set detector's focal length")
         
     parser.add_argument(
+        "-s",
         "--source",
         dest = "source",
         default = "gcu",
         help = "set observation source (default: gcu)")
     
     parser.add_argument(
+        "-t",
         "--theta",
         dest = "theta",
         type = QuantityType("radian"),
@@ -163,6 +181,7 @@ def config_from_cli():
         help = "pick-off arm theta angle configuration (default: 0º)")
     
     parser.add_argument(
+        "-p",
         "--phi",
         dest = "phi",
         type = QuantityType("radian"),
@@ -170,6 +189,7 @@ def config_from_cli():
         help = "pick-off arm theta angle configuration (default: 0º)")
     
     parser.add_argument(
+        "-O",
         "--oversampling",
         dest = "oversampling",
         type = int,
@@ -177,11 +197,20 @@ def config_from_cli():
         help = "set oversampling per pixel dimension (default: 8)")
     
     parser.add_argument(
+        "-P",
         "--parallel",
         dest = "parallel",
         default = False,
         action = 'store_true',
         help = "enable parallelization (default: false)")
+    
+    parser.add_argument(
+        "-e",
+        "--exposition",
+        dest = "exposition",
+        type = QuantityType("second"),
+        default = QuantityType("second", 0),
+        help = "exposition time (default 0, only fluxes are represented)")
     
     args = parser.parse_args()
     
@@ -201,6 +230,7 @@ def config_from_cli():
     config["ccd.pixel-width"] = args.px_width["meter"]
     config["ccd.pixel-height"] = args.px_height["meter"]
     config["ccd.focal-length"] = args.focal_length["meter"]
+    config["ccd.exposition"] = args.exposition["second"]
     
     config["poa.theta"] = args.theta["radian"]
     config["poa.phi"]   = args.phi["radian"]

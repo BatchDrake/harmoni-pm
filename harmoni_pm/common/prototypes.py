@@ -31,6 +31,8 @@
 from builtins import zip
 from .array import FloatArray
 from .exceptions import InvalidPrototypeError
+from .array import ARRAY_TYPE
+from numpy import ndarray
 
 def is_prototype(args, types):
     if len(args) != len(types):
@@ -56,15 +58,22 @@ def get_xy(xy = None, x = None, y = None):
                 raise InvalidPrototypeError("xy elements must be floats")
         
             return FloatArray.make(xy)
-        
         elif FloatArray.compatible_with(xy): 
             if xy.shape[len(xy.shape) - 1] != 2:
                 raise InvalidPrototypeError("Last dimension of xy must be of 2 elements")
             
             return xy
-        
         else:
-            raise InvalidPrototypeError("Invalid compound xy coordinates")
+            if isinstance(xy, ndarray):
+                if xy.dtype != ARRAY_TYPE:
+                    print(
+                        ("\033[1;31mBUSTED!\033[0m " + 
+                        "An attempt to use a {0} NumPy array was " + 
+                        "detected, but only {1} arrays are allowed").format(
+                            xy.dtype, 
+                            ARRAY_TYPE))
+                    
+            raise InvalidPrototypeError("Mixed precision operations are not allowed by design")
     else:
         raise InvalidPrototypeError("No coordinates were passed to method")
 

@@ -37,6 +37,9 @@ import time
 HARMONI_IMAGE_SAMPLER_SLICE_SIZE   = 128
 
 HARMONI_IMAGE_SAMPLER_OVERSAMPLING = 8
+HARMONI_IMAGE_CENTER_WAVELENGTH    = 500e-9         # m
+HARMONI_C                          = 3e8            # s
+HARMONI_H                          = 6.62607004e-34 # J s
 
 class ImageSampler:
     def _reset_ccd(self):
@@ -44,6 +47,12 @@ class ImageSampler:
     
     def _integrate_pixels(self, ij):
         Ninv = 1. / self.oversampling ** 2
+        
+        dx = self.delta_x / self.oversampling
+        dy = self.delta_y / self.oversampling
+         
+        p_dx = self.finv * FloatArray.make([dx, 0.])
+        p_dy = self.finv * FloatArray.make([0., dy])
         
         # The total number of coordinates will be ij.rows() x oversampling^2
         # We can achieve this by repeating the coordinates inside ij 
@@ -56,11 +65,23 @@ class ImageSampler:
         
         p_xy += self.finv * (
             ij * [self.delta_x, self.delta_y] + [self.x0, self.y0])
-
         # The full coordinate list is now just p_xy + o_xy
-        I = self.plane.get_intensity(self.model.get_transform().backward(p_xy))
+        
+        # Numerical calculation of the Jacobian, according to the current
+        # oversampling configuration. It is assumed that the oversampling
+        # already provides information about the sub-Nyquist structure of the
+        # image plane.
+        
+        # TODO: maybe use centered finite differences?
+        Tb = self.model.get_transform().backward(p_xy)
+        dTdx = (Tb - self.model.get_transform().backward(p_xy + p_dx)) / dx
+        dTdy = (Tb - self.model.get_transform().backward(p_xy + p_dy)) / dy
+        
+        J = dTdx[:, 0] * dTdy[:, 1] - dTdx[:, 1] * dTdy[:, 0]
+        
+        F = Ninv * self.betaA * self.plane.get_intensity(Tb) * J
     
-        np.add.at(self.ccd, tuple(ij.transpose()), Ninv * I)
+        np.add.at(self.ccd, tuple(ij.transpose()), F)
     
     def __init__(self, plane, model):
         self.plane        = plane
@@ -79,6 +100,8 @@ class ImageSampler:
         x = self.finv * osp.flatten() * odx + .5 * odx
         y = self.finv * osp.transpose().flatten() * ody + .5 * ody
     
+        self.betaA = self.model.intensity_to_flux()
+        
         self.xy = FloatArray.make([x, y]).transpose()
         
         self._reset_ccd()
@@ -175,20 +198,35 @@ class ImageSampler:
             np.std(self.delays), 
             execution_end - execution_start)
     
-    def save_to_file(self, path):
+    def save_to_file(self, path, delta_t = None, linear = False):
         # This square root is for representation purposes only. CCD stores 
         # something that is proportional to the gathered energy, while
         # image information refers to the amplitude of the wave. The
         # relationship between both is precisely a square root.
-        
-        ccdsqrt = np.sqrt(self.ccd)
-        maxv = ccdsqrt.max()       
+       
+        if delta_t is not None:
+            Ap = self.delta_x * self.delta_y
+            
+            # TODO: Calculate Q appropriately, don't assume wavelengths
+            f2q = HARMONI_IMAGE_CENTER_WAVELENGTH / (HARMONI_H * HARMONI_C)
+            
+            print(
+                "Peak photon flux: {0} / (s px)".format(
+                    np.max(f2q * self.ccd * Ap * delta_t)))
+            ccd = np.random.poisson(f2q * self.ccd * Ap * delta_t) 
+        else:
+            ccd = self.ccd
+            
+        if not linear:
+            ccd = np.sqrt(ccd)
+            
+        maxv = ccd.max()       
         if np.abs(maxv) > 0:
             k = 255 / maxv
         else:
             k = 1
         
-        im = Image.fromarray((k * ccdsqrt).astype(np.uint8))
+        im = Image.fromarray((k * ccd).astype(np.uint8))
         
         im.save(path)
-        
+    
