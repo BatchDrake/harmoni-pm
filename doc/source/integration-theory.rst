@@ -1,7 +1,7 @@
 Integration and energy transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We refer by *integration* to the calculation of the number of photons that arrive to each pixel in a given period of time, assuming an intensity pattern at the other end of the optical system. This calculation is implemented the :code:`ImageSampler` componentn and is based on radiative transfer. Let :math:`dE_t` the energy differential corresponding to the amount of radiative energy coming from a region in the sky of radiative intensity :math:`I` and angular size :math:`d\Omega` entering an aperture of area :math:`A` in a time :math:`dt` and a small range of frequencues :math:`d\nu`. This quantity can be written as:
+We refer by *integration* to the calculation of the number of photons that arrive to each pixel in a given period of time, assuming an intensity pattern at the other end of the optical system. This calculation is implemented the :code:`ImageSampler` component and is based on radiative transfer. Let :math:`dE_t` the energy differential corresponding to the amount of radiative energy coming from a region in the sky of radiative intensity :math:`I` and angular size :math:`d\Omega` entering an aperture of area :math:`A` in a time :math:`dt` and a small range of frequencues :math:`d\nu`. This quantity can be written as:
 
   .. math::
 
@@ -40,7 +40,7 @@ Focal distance and aberrations
 ------------------------------
 In the previous point, we stated that :math:`\frac{d\Omega}{dS}=\frac{1}{f^2}` *if we assume aberration-free optics*. This will rarely be the case in the real world, and therefore a proper understanding of the relationship between aberrations and focal distance is necessary.
 
-Let :math:`T_b=(\phi(\vec{x}, \psi(\vec{x})))` be the compound backward transform of all the optical elements in the optical path, where :math:`\vec{x}=x\hat{e}_x+y\hat{e}_y` is the position vector of a point over the focal plane and :math:`\phi(\vec{x})` and :math:`\psi(\vec{x})` are two angular coordinates of the corresponding point in the sky with respect to the telescope pointing and centered in the equator. In this system :math:`\phi` is the longitude and :math:`\psi` its latitude. The orthonormal basis :math:`\hat{e}_x,\hat{e}_y` can be assumed to be conveniently aligned to the rows and columns of pixels of the detector. 
+Let :math:`T_b(\vec{x})=[\phi(\vec{x}), \psi(\vec{x})]` be the compound backward transform of all the optical elements in the optical path, where :math:`\vec{x}=x\hat{e}_x+y\hat{e}_y` is the position vector of a point over the focal plane and :math:`\phi(\vec{x})` and :math:`\psi(\vec{x})` are two angular coordinates of the corresponding point in the sky with respect to the telescope pointing and centered in the equator. In this system :math:`\phi` is the longitude and :math:`\psi` its latitude. The orthonormal basis :math:`\hat{e}_x,\hat{e}_y` can be assumed to be conveniently aligned to the rows and columns of pixels of the detector. 
 
 The solid angle differential :math:`d\Omega=\text{cos }\psi d\phi d\psi` is related to the focal plane area differential :math:`dS=dxdy`:
 
@@ -54,7 +54,7 @@ Where :math:`J_b` is the Jacobian matrix of the backward transform:
    \frac{\partial\psi}{\partial x} & \frac{\partial\psi}{\partial y}
    \end{pmatrix}
 
-In the paraxial approximation, :math:`\text{cos }\psi\approx0`. :math:`J_b` allows a polar decomposition of the form :math:`AR`, where :math:`A` is a symmetric matrix and :math:`R` a rotation matrix that can be connected to field rotation and the specific pick-off arm configuration. In the absence of rotations :math:`J_b=A` and in the absence of aberrations we can assume that :math:`\phi` only depends on :math:`x` and :math:`\psi` only depends on :math:`y`, which  implies that :math:`\frac{\partial\phi}{\partial y} = \frac{\partial\psi}{\partial x}=0` and :math:`A` will be simplified down to a diagonal matrix:
+In the paraxial approximation, :math:`\text{cos }\psi\approx1`. :math:`J_b` allows a polar decomposition of the form :math:`AR`, where :math:`A` is a symmetric matrix and :math:`R` a rotation matrix that can be connected to field rotation and the specific pick-off arm configuration. In the absence of rotations :math:`J_b=A` and in the absence of aberrations we can choose :math:`\phi` so that it only depends on :math:`x` and :math:`\psi` only depends on :math:`y`, which  implies that :math:`\frac{\partial\phi}{\partial y} = \frac{\partial\psi}{\partial x}=0` and :math:`A` will be simplified down to a diagonal matrix:
 
 .. math ::
    \frac{d\Omega}{dS} = \text{det }AR = \text{det A} = \frac{\partial \phi}{\partial x}\frac{\partial\psi}{\partial y} = \frac{1}{f^2}
