@@ -33,3 +33,5 @@ from .transform import Transform
 from .composite_transform import CompositeTransform
 from .transform_tester import TransformTester
 from .brown_conrady import BrownConradyTransform
+from .sampled_transform import SampledTransform
+from .inverse_transform import InverseTransform

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,38 +28,23 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-import numpy as np
+from harmoni_pm.transform import Transform
 
-ARRAY_TYPE = 'float32'
-
-class FloatArray(np.ndarray):
-    def __new__(
-            cls, 
-            shape, 
-            buffer = None, 
-            offset = 0, 
-            strides = None, 
-            order = None):
-        obj = super(FloatArray, cls).__new__(
-            cls, 
-            shape, 
-            ARRAY_TYPE,
-            buffer, 
-            offset, 
-            strides,
-            order)
-
-        return obj
+# Simple transform that just reverses the role of the forward and backward
+# transforms
+class InverseTransform(Transform):
+    def __init__(self, t):
+        self.t = t
+        
+    def _forward(self, xy):
+        return self.t._backward(xy)
     
-    @staticmethod
-    def make(lst):
-        return np.array(lst, dtype = ARRAY_TYPE)
-
-    @staticmethod
-    def zeros(lst):
-        return np.zeros(lst, dtype = ARRAY_TYPE)
-
-    @staticmethod
-    def compatible_with(arr):
-        return isinstance(arr, np.ndarray) and arr.dtype == ARRAY_TYPE
+    def _backward(self, xy):
+        return self.t._forward(xy)
+    
+    def _forward_matrix(self, matrix):
+        return self.t._backward_matrix(matrix)
+    
+    def _backward_matrix(self, matrix):
+        return self.t._forward_matrix(matrix)
     

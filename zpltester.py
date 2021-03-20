@@ -28,38 +28,35 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-import numpy as np
+from harmoni_pm.transform import TransformTester, InverseTransform
+import harmoni_pm.optics  
+from harmoni_pm.optics.zpl_report_parser import ZplReportParser
 
-ARRAY_TYPE = 'float32'
+def runTest(transf):
+    transf_name = type(transf).__name__
+    print("Running tester on {0}...".format(transf_name))
+    tester = TransformTester(transf)
 
-class FloatArray(np.ndarray):
-    def __new__(
-            cls, 
-            shape, 
-            buffer = None, 
-            offset = 0, 
-            strides = None, 
-            order = None):
-        obj = super(FloatArray, cls).__new__(
-            cls, 
-            shape, 
-            ARRAY_TYPE,
-            buffer, 
-            offset, 
-            strides,
-            order)
-
-        return obj
+    tester.generate_points(200, 200, .5, .5)
+    #tester.generate_stars(85, -1, 100, 100, 6)
+    tester.sample()
     
-    @staticmethod
-    def make(lst):
-        return np.array(lst, dtype = ARRAY_TYPE)
-
-    @staticmethod
-    def zeros(lst):
-        return np.zeros(lst, dtype = ARRAY_TYPE)
-
-    @staticmethod
-    def compatible_with(arr):
-        return isinstance(arr, np.ndarray) and arr.dtype == ARRAY_TYPE
+    print("  Applying forward...")
+    tester.forward()
+    print("  Saving...")
+    tester.save_to_image(transf_name + "-distorted.png")
     
+    print("  Applying backward..")
+    tester.backfeed()
+    tester.backward()
+    
+    print("  Saving...")
+    tester.save_to_image(transf_name + "-restored.png")
+    
+    print("  Distortion RMS after undo: {0}".format(tester.distortion_rms()))
+
+
+report = ZplReportParser("FPRS_distortion_map.txt")
+report.parse()
+runTest(report.make_transform())
+runTest(InverseTransform(report.make_transform()))

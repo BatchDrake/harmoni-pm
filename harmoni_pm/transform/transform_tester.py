@@ -40,7 +40,7 @@ import numpy as np
 IMAGE_WIDTH         = 1920
 IMAGE_HEADER_HEIGHT = 320
 IMAGE_MARGIN_WIDTH  = 24
-IMAGE_POINT_RADIUS  = 3
+IMAGE_POINT_RADIUS  = 2
 
 class TransformTester:
     def __init__(self, transform):
@@ -204,7 +204,7 @@ class TransformTester:
             rect = [(xy1[0], xy1[1]), (xy2[0], xy2[1])]
             
             draw.ellipse(orig, fill = "gray", outline = "gray")
-            draw.line(rect,    fill = "#007f00",  width = 1)
+            draw.line(rect,    fill = "#00ff00",  width = 1)
             draw.ellipse(dest, fill = "white", outline = "white")
         
             

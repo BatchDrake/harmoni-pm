@@ -30,3 +30,4 @@
 
 from .optical_model import OpticalModel 
 from .fprs_transform import FPRSTransform
+from .zpl_report_parser import ZplReportParser

@@ -57,6 +57,9 @@ class OpticalModel:
         self.poa_transform = POATransform(0, 0)
         self.transform = CompositeTransform()
         
+        self.cal_select = True
+        
+        self.transform.push_back(self.fprs_transform)
         self.transform.push_back(self.poa_transform)
     
     def intensity_to_flux(self):
@@ -71,6 +74,12 @@ class OpticalModel:
         
     def get_transform(self):
         return self.transform
+    
+    def set_cal(self, cal_select):
+        if cal_select is not self.cal_select:
+            self.cal_select = cal_select
+            # TODO: Add or remove telescope-specific transforms
+            pass
     
     def move_to(self, theta, phi):
         self.poa_transform.set_axis_angles(theta, phi)

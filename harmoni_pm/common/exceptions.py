@@ -33,3 +33,6 @@ class InvalidPrototypeError(ValueError):
 
 class InvalidTensorShapeError(ValueError):
     pass
+
+class InvalidFileTypeError(ValueError):
+    pass

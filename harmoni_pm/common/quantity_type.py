@@ -34,9 +34,15 @@ from pint import UnitRegistry
 Q = UnitRegistry().Quantity
 
 class QuantityType(object):
-    def __init__(self, base_units, value = 0):
+    def __init__(self, base_units, value = 0, error = 0, tol = 0):
         self.units = base_units
-        self.value = Q(value, self.units)
+        
+        if tol > 0:
+            self.value = Q(value, self.units).plus_minus(tol, relative = True)
+        elif error > 0:
+            self.value = Q(value, self.units).plus_minus(error)
+        else:
+            self.value = Q(value, self.units)
         
     def __call__(self, asstr):
         try:
