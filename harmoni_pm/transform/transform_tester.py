@@ -34,19 +34,34 @@ from harmoni_pm.common.array import FloatArray
 from skyfield.api import Star, load
 from skyfield.data import hipparcos
 from skyfield.units import Angle
+from matplotlib import cm
 
 import numpy as np
+
 
 IMAGE_WIDTH         = 1920
 IMAGE_HEADER_HEIGHT = 320
 IMAGE_MARGIN_WIDTH  = 24
 IMAGE_POINT_RADIUS  = 2
+IMAGE_COLORMAP_SIZE = 256
+
+IMAGE_DEFAULT_VECTOR_COLOR      = "#00ff00"
+IMAGE_DEFAULT_ORIGINAL_COLOR    = "gray"
+IMAGE_DEFAULT_DESTINATION_COLOR = "white"
+IMAGE_DEFAULT_TYPE              = "vector"
+IMAGE_DEFAULT_COLORMAP          = "inferno"
 
 class TransformTester:
     def __init__(self, transform):
         self.transform = transform
         self.planets = load('de421.bsp')
         self.earth = self.planets['earth']
+        
+        self.vector_color      = IMAGE_DEFAULT_VECTOR_COLOR
+        self.original_color    = IMAGE_DEFAULT_ORIGINAL_COLOR
+        self.destination_color = IMAGE_DEFAULT_DESTINATION_COLOR
+        self.point_radius      = IMAGE_POINT_RADIUS
+        self.colormap          = IMAGE_DEFAULT_COLORMAP
         
     def prepare_dataset(self):
         self.input       = self.point_array
@@ -59,6 +74,8 @@ class TransformTester:
     def generate_stars(self, ra, dec, ra_width, dec_width, maglimit):
         self.width  = ra_width
         self.height = dec_width
+        self.delta  = None
+        self.J      = None
         
         # The "False" arguments below are to prevent skyfield from assuming
         # that I am not in full command of my cognitive abilities
@@ -96,6 +113,8 @@ class TransformTester:
     def generate_points(self, width, height, delta_x, delta_y):
         self.width  = width
         self.height = height
+        self.delta  = FloatArray.make([delta_x, delta_y])
+        self.J      = None
         self.sizes  = None
         self.desc   = "Rectangular grid of points"
          
@@ -121,20 +140,156 @@ class TransformTester:
         self.transform.generate()
         
     def forward(self):
+        self.J      = None
         self.result = self.transform.forward(self.input)
         self.result_desc = "Forward"
         
     def backward(self):
+        self.J      = None
         self.result = self.transform.backward(self.input)
         self.result_desc = "Backward"
+    
+    # TODO: Verify whether there is delta information
+    def forward_jacobian(self):
+        dx = FloatArray.make([self.delta[0], 0])
+        dy = FloatArray.make([0, self.delta[1]])
+        
+        self.forward()
+        
+        dTdx = (self.transform.forward(self.input + dx) - dx - self.result) / dx[0]
+        dTdy = (self.transform.forward(self.input + dy) - dy - self.result) / dy[1]
+        
+        self.J = [dTdx, dTdy]
+    
+    def backward_jacobian(self):
+        dx = FloatArray.make([self.delta[0], 0])
+        dy = FloatArray.make([0, self.delta[1]])
+        
+        self.backward()
+        
+        dTdx = (self.transform.backward(self.input + dx) - self.result) / dx[0]
+        dTdy = (self.transform.backward(self.input + dy) - self.result) / dy[1]
+        
+        self.J = [dTdx, dTdy]
     
     def distortion_rms(self):
         err =  (self.point_array - self.result)
         return np.sqrt(np.mean(err[:, 0] * err[:, 0] + err[:, 1] * err[:, 1]))
     
-    def save_to_image(self, path):
-        # Calculate geometry of the resulting image
+    def draw_vectors(self, draw, m, x0y0):
+        for i in range(self.point_count):
+            if self.sizes is None:
+                radius = self.point_radius
+            else:
+                radius = self.sizes[i]
+                
+            xy1 = self.point_array[i, :] * m + x0y0
+            orig = [(xy1[0] - radius, xy1[1] - radius),
+                    (xy1[0] + radius, xy1[1] + radius)]
+            
+            xy2 = self.result[i, :] * m + x0y0
+            dest = [(xy2[0] - radius, xy2[1] - radius),
+                    (xy2[0] + radius, xy2[1] + radius)] 
+            
+            rect = [(xy1[0], xy1[1]), (xy2[0], xy2[1])]
+            
+            draw.ellipse(
+                orig, 
+                fill = self.original_color, 
+                outline = self.original_color)
+            draw.line(rect, fill = self.vector_color, width = 1)
+            draw.ellipse(
+                dest, 
+                fill = self.destination_color, 
+                outline = self.destination_color)
         
+    @staticmethod
+    def _to_rgb(c):
+        return (int(255 * c[0]), int(255 * c[1]), int(255 * c[2]))
+    
+    def draw_colorbar(self, draw, m, x0y0, fmin, fmax, cmap):
+        x0 = -.5 * m[0] * self.width  + x0y0[0]
+        y0 = .5 * m[1] * self.height + x0y0[1] - 3 * IMAGE_MARGIN_WIDTH
+        
+        x1 = .5 * m[0] * self.width + x0y0[0]
+        y1 = .5 * m[1] * self.height + x0y0[1] - IMAGE_MARGIN_WIDTH
+        
+        step = (x1 - x0) / IMAGE_COLORMAP_SIZE
+        
+        for i in range(IMAGE_COLORMAP_SIZE):
+            xp = i * step + x0
+            xn = xp + step
+            
+            v  = self._to_rgb(cmap(i / float(IMAGE_COLORMAP_SIZE)))
+            
+            draw.rectangle([int(xp), int(y0), int(xn), int(y1)], v)
+                
+        font = ImageFont.truetype('Tuffy_Bold.ttf', 30)
+        
+        draw.rectangle([x0, y0, x1, y1], None, "black", 2)
+        
+        txt = u"{0:e}".format(fmin)
+        dim = font.getsize(txt)
+        draw.text(
+            (x0 + .5 * dim[1], (y1 + y0) * .5 - dim[1] * .5),
+            txt,
+            fill = self._to_rgb(cmap(1.)),
+            font = font)
+
+        txt = u"{0:e}".format(fmax)
+        dim = font.getsize(txt)
+        draw.text(
+            (x1 - dim[0] - .5 * dim[1], (y1 + y0) * .5 - dim[1] * .5),
+            txt,
+            fill = self._to_rgb(cmap(0.)),
+            font = font)
+
+    def draw_scalar_field(self, draw, field, m, x0y0, f0 = None, f1 = None):
+        cmap = cm.get_cmap(self.colormap, IMAGE_COLORMAP_SIZE)
+        
+        if f0 is None:
+            f0 = np.min(field)
+            
+        if f1 is None:
+            f1 = np.max(field)
+        
+        h    = 1. / (f1 - f0)
+        
+        for i in range(self.point_count):
+            xy0 = (self.point_array[i, :] - .5 * self.delta) * m + x0y0
+            xy1 = (self.point_array[i, :] + .5 * self.delta) * m + x0y0
+            x0 = int(xy0[0])
+            y0 = int(xy0[1])
+            x1 = int(xy1[0])
+            y1 = int(xy1[1])
+            
+            draw.rectangle(
+                [x0, y0, x1, y1],
+                self._to_rgb(cmap((field[i] - f0) * h)),
+                width = 0)
+            
+        
+        self.draw_colorbar(draw, m, x0y0, f0, f1, cmap)
+            
+    def draw_jacobian_det(self, draw, m, x0y0):
+        field = (self.J[0][:, 0]) * (self.J[1][:, 1]) - self.J[0][:, 1] * self.J[1][:, 0]
+        self.draw_scalar_field(draw, field, m, x0y0)
+        
+    def draw_divergence(self, draw, m, x0y0):
+        field = self.J[0][:, 0] + self.J[1][:, 1]
+        self.draw_scalar_field(draw, field, m, x0y0)
+    
+    def draw_curl(self, draw, m, x0y0):
+        field = -self.J[1][:, 0] + self.J[0][:, 1]
+        self.draw_scalar_field(draw, field, m, x0y0)
+    
+    def draw_rotation(self, draw, m, x0y0):
+        e = self.result - self.input
+        field = (np.arctan2(e[:, 1], e[:, 0]) - np.arctan2(self.input[:, 1], self.input[:, 0]))
+        self.draw_scalar_field(draw, np.abs(np.sin(field)), m, x0y0, 0, 1)
+        
+    def save_to_image(self, path, maptype = IMAGE_DEFAULT_TYPE):
+        # Calculate geometry of the resulting image
         width        = int(IMAGE_WIDTH)
         field_width  = np.ceil(width - 2 * IMAGE_MARGIN_WIDTH)
         scale        = field_width / self.width
@@ -144,7 +299,13 @@ class TransformTester:
         field_corner = (IMAGE_MARGIN_WIDTH, hdr_height)
         field_center = (field_corner[0] + field_width / 2, field_corner[1] + field_height / 2)
         field_box    = [field_corner, (IMAGE_MARGIN_WIDTH + field_width, hdr_height + field_height)] 
-        
+        descs        = {
+            "vector"      : "displacement vector field",
+            "curl"        : "transform curl",
+            "divergence"  : "transform divergence",
+            "determinant" : "jacobian determinant",
+            "rotation"    : "rotation w.r.t scaling"}
+            
         m            = scale * FloatArray.make((1, -1))
         x0y0         = FloatArray.make(field_center)
         
@@ -184,30 +345,26 @@ class TransformTester:
             font = fnt_small,
             fill = "#000000")
                 
+        draw.text(
+            (IMAGE_MARGIN_WIDTH, IMAGE_MARGIN_WIDTH + 208),
+            u"Variable: {0}".format(descs[maptype]),
+            font = fnt_small,
+            fill = "#000000")
+        
         # Enclose it
         draw.rectangle(field_box, fill='black', outline="gray", width=(IMAGE_POINT_RADIUS * 2))
-        
-        for i in range(self.point_count):
-            if self.sizes is None:
-                radius = IMAGE_POINT_RADIUS
-            else:
-                radius = self.sizes[i]
-                
-            xy1 = self.point_array[i, :] * m + x0y0
-            orig = [(xy1[0] - radius, xy1[1] - radius),
-                    (xy1[0] + radius, xy1[1] + radius)]
-            
-            xy2 = self.result[i, :] * m + x0y0
-            dest = [(xy2[0] - radius, xy2[1] - radius),
-                    (xy2[0] + radius, xy2[1] + radius)] 
-            
-            rect = [(xy1[0], xy1[1]), (xy2[0], xy2[1])]
-            
-            draw.ellipse(orig, fill = "gray", outline = "gray")
-            draw.line(rect,    fill = "#00ff00",  width = 1)
-            draw.ellipse(dest, fill = "white", outline = "white")
-        
-            
+
+        # Draw
+        if maptype == "vector":
+            self.draw_vectors(draw, m, x0y0)
+        elif maptype == "determinant":
+            self.draw_jacobian_det(draw, m, x0y0)
+        elif maptype == "divergence":
+            self.draw_divergence(draw, m, x0y0)
+        elif maptype == "curl":
+            self.draw_curl(draw, m, x0y0)
+        elif maptype == "rotation":
+            self.draw_rotation(draw, m, x0y0)
         del draw
         im.save(path)
         

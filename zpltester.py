@@ -29,26 +29,28 @@
 #
 
 from harmoni_pm.transform import TransformTester, InverseTransform
-import harmoni_pm.optics  
 from harmoni_pm.optics.zpl_report_parser import ZplReportParser
 
 def runTest(transf):
     transf_name = type(transf).__name__
     print("Running tester on {0}...".format(transf_name))
     tester = TransformTester(transf)
-
-    tester.generate_points(200, 200, .5, .5)
+    tester.type = "determinant"
+    tester.generate_points(200, 200, 5, 5)
     #tester.generate_stars(85, -1, 100, 100, 6)
     tester.sample()
     
     print("  Applying forward...")
-    tester.forward()
+    tester.forward_jacobian()
     print("  Saving...")
     tester.save_to_image(transf_name + "-distorted.png")
-    
+    tester.save_to_image(transf_name + "-determinant.png", "determinant")
+    tester.save_to_image(transf_name + "-curl.png", "curl")
+    tester.save_to_image(transf_name + "-divergence.png", "divergence")
+    tester.save_to_image(transf_name + "-rotation.png", "rotation")
     print("  Applying backward..")
     tester.backfeed()
-    tester.backward()
+    tester.backward_jacobian()
     
     print("  Saving...")
     tester.save_to_image(transf_name + "-restored.png")
@@ -58,5 +60,6 @@ def runTest(transf):
 
 report = ZplReportParser("FPRS_distortion_map.txt")
 report.parse()
-runTest(report.make_transform())
-runTest(InverseTransform(report.make_transform()))
+t = report.make_transform()
+runTest(t)
+runTest(InverseTransform(t))

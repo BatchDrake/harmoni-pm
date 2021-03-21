@@ -98,6 +98,11 @@ def runTest(transf, grid = False):
     print("  Applying forward...")
     tester.forward()
     print("  Saving...")
+    
+    if grid:
+        tester.save_to_image(transf_name + "-rotation.png", "rotation")
+        
+    
     tester.save_to_image(transf_name + "-distorted.png")
     
     print("  Applying backward..")
@@ -110,9 +115,9 @@ def runTest(transf, grid = False):
     print("  Distortion RMS after undo: {0}".format(tester.distortion_rms()))
 
 
-runTest(ScaleTransform())
-runTest(RotationTransform(np.pi / 180. * 5))
-runTest(ThirdOrderTransform(1e-3))
+runTest(ScaleTransform(), grid = True)
+runTest(RotationTransform(np.pi / 180. * 5), grid = True)
+runTest(ThirdOrderTransform(1e-3), grid = True)
 
 c = CompositeTransform()
 
