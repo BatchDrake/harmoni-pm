@@ -283,6 +283,19 @@ class TransformTester:
         field = -self.J[1][:, 0] + self.J[0][:, 1]
         self.draw_scalar_field(draw, field, m, x0y0)
     
+    def draw_ex(self, draw, m, x0y0):
+        field = (self.result - self.input)[:, 0]
+        self.draw_scalar_field(draw, field, m, x0y0)
+        
+    def draw_ey(self, draw, m, x0y0):
+        field = (self.result - self.input)[:, 1]
+        self.draw_scalar_field(draw, field, m, x0y0)
+    
+    def draw_e(self, draw, m, x0y0):
+        e = self.result - self.input
+        field = np.sqrt(e[:, 0] ** 2 + e[:, 1] ** 2)
+        self.draw_scalar_field(draw, field, m, x0y0)
+    
     def draw_rotation(self, draw, m, x0y0):
         e = self.result - self.input
         field = (np.arctan2(e[:, 1], e[:, 0]) - np.arctan2(self.input[:, 1], self.input[:, 0]))
@@ -304,7 +317,10 @@ class TransformTester:
             "curl"        : "transform curl",
             "divergence"  : "transform divergence",
             "determinant" : "jacobian determinant",
-            "rotation"    : "rotation w.r.t scaling"}
+            "rotation"    : "rotation w.r.t scaling",
+            "offset"      : "total displacement",
+            "offset-x"    : "horizontal displacement",
+            "offset-y"    : "vertical displacement"}
             
         m            = scale * FloatArray.make((1, -1))
         x0y0         = FloatArray.make(field_center)
@@ -365,6 +381,13 @@ class TransformTester:
             self.draw_curl(draw, m, x0y0)
         elif maptype == "rotation":
             self.draw_rotation(draw, m, x0y0)
+        elif maptype == "offset":
+            self.draw_e(draw, m, x0y0)
+        elif maptype == "offset-x":
+            self.draw_ex(draw, m, x0y0)
+        elif maptype == "offset-y":
+            self.draw_ey(draw, m, x0y0)
+            
         del draw
         im.save(path)
         
