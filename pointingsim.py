@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,11 +28,45 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import FloatArray
-from .transform import Transform
-from .composite_transform import CompositeTransform
-from .transform_tester import TransformTester
-from .brown_conrady import BrownConradyTransform
-from .sampled_transform import SampledTransform
-from .inverse_transform import InverseTransform
-from .plane_sampler import PlaneSampler
+from harmoni_pm.transform import PlaneSampler
+from harmoni_pm.optics   import OpticalModel
+import matplotlib.pyplot as plt
+
+import argparse, sys
+import numpy as np
+from harmoni_pm.common.configuration import Configuration
+
+POINTINGSIM_DEFAULT_FIELD_DIAMETER = 4e-1 # m
+POINTINGSIM_DEFAULT_FIELD_DELTA_X  = 1e-3 # m 
+POINTINGSIM_DEFAULT_FIELD_DELTA_Y  = 1e-3 # m
+
+class PointingSimulator(PlaneSampler):
+    def _reset_measures(self):
+        self._measures = np.zeros([self.cols, self.rows])
+        
+    def _process_region(self, ij, xy):
+        Ninv = 1. / self.oversampling ** 2
+        
+        err = np.linalg.norm(xy - self.model.transform.backward(xy), axis = 1)
+        
+        np.add.at(self._measures, tuple(ij.transpose()), Ninv * err)
+
+    def __init__(self, config):
+        super().__init__()
+        
+        self.config = config
+        self.model  = OpticalModel()
+        
+    def precalculate(self):
+        super().precalculate()
+        self._reset_measures()
+    
+    
+    def show(self):
+        plt.imshow(self._measures, cmap=plt.get_cmap("inferno"))
+        plt.show()
+        
+ps = PointingSimulator(Configuration)
+ps.set_sampling_properties(400, 400, 1, 1)
+ps.process()
+ps.show()

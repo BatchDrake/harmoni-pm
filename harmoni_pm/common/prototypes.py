@@ -60,7 +60,8 @@ def get_xy(xy = None, x = None, y = None):
             return FloatArray.make(xy)
         elif FloatArray.compatible_with(xy): 
             if xy.shape[len(xy.shape) - 1] != 2:
-                raise InvalidPrototypeError("Last dimension of xy must be of 2 elements")
+                raise InvalidPrototypeError(
+                    "Last dimension of xy must be of 2 elements, but is {0} instead".format(xy.shape[len(xy.shape) - 1]))
             
             return xy
         else:

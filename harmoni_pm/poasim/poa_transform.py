@@ -44,7 +44,7 @@ HARMONI_POA_POSITION_OFFSET = "0.5+/-0.5 dimensionless (flat)" # units w.r.t lev
 class POATransform(Transform):
     def __init__(self, theta, phi):
         self.step_count = 2 ** HARMONI_POA_ENCODER_BITS
-        self.pos_off    = GenerativeQuantity(HARMONI_POA_POSITION_OFFSET)
+        self.pos_off    = GenerativeQuantity.make(HARMONI_POA_POSITION_OFFSET)
         
         self.set_axis_angles(theta, phi)
     
@@ -56,16 +56,15 @@ class POATransform(Transform):
         phi   -= np.floor(phi)
         
         digital_theta = (
-            np.floor(theta * self.step_count) + self.pos_off.generate()) / self.step_count
+            np.floor(theta * self.step_count) + self.pos_off.generate()[0]) / self.step_count
              
         digital_phi   = (
-            np.floor(phi   * self.step_count) + self.pos_off.generate()) / self.step_count
+            np.floor(phi  * self.step_count) + self.pos_off.generate()[0]) / self.step_count
         
         return (digital_theta * 2 * np.pi, digital_phi * 2 * np.pi)
     
     def set_axis_angles(self, theta, phi):
         theta, phi = self.quantize_theta_phi(theta, phi)
-        
         self.theta   = theta
         self.phi     = phi
         self.rotangl = phi - theta
@@ -76,7 +75,7 @@ class POATransform(Transform):
         self.fwd_rot = FloatArray.make(
             [[np.cos(self.rotangl),  -np.sin(self.rotangl)],
              [np.sin(self.rotangl), np.cos(self.rotangl)]])
-        
+            
         self.bwd_rot = np.transpose(self.fwd_rot)
         
     def get_cost(self):
