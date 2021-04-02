@@ -67,9 +67,9 @@ class POATransform(Transform):
         return self.fwd_rot.dot(p - self.center)
     
     def _backward_matrix(self, p):
-        return self.bwd_rot.dot(p.transpose() * HARMONI_POA_MAGNIFICATION).transpose() + self.center
+        return self.bwd_rot.dot(p.transpose()).transpose() + self.center
     
     def _backward(self, p):
-        return self.bwd_rot.dot(p * HARMONI_POA_MAGNIFICATION) + self.center
+        return self.bwd_rot.dot(p) + self.center
 
     
