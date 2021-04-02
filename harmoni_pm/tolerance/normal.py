@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,17 +28,33 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-class InvalidPrototypeError(ValueError):
-    pass
+from .error_distribution import ErrorDistribution
+from ..common.exceptions import InvalidPrototypeError
+from numpy.random import normal
+from ..common import FloatArray
 
-class InvalidTensorShapeError(ValueError):
-    pass
+SD_TO_FWHM_FACTOR = 2.35482004503095 # 2 * sqrt(2 * log(2))
 
-class InvalidFileTypeError(ValueError):
-    pass
-
-class AbstractClassCallError(ValueError):
-    pass
-
-class InvalidQuantityRepresentation(ValueError):
-    pass
+class Normal(ErrorDistribution):
+    # The normal error distribution is initialized NOT from the standard
+    # deviation, but from the error, measured as half the FWHM
+    def __init__(self, mu, err = None, sd = None, fwhm = None):
+        if err is not None:
+            self.p_fwhm = 2 * err
+            sd = self.p_fwhm / SD_TO_FWHM_FACTOR
+        elif fwhm is not None:
+            self.p_fwhm = fwhm
+            sd = self.p_fwhm / SD_TO_FWHM_FACTOR
+        elif sd is not None:
+            self.p_fwhm = sd * SD_TO_FWHM_FACTOR
+        else:
+            raise InvalidPrototypeError("Neither FWHM nor SD were provided")
+        
+        super().__init__(mu, sd)
+        
+    def generate(self, n = 1):
+        return FloatArray.make(normal(self.mu(), self.sd(), n)) 
+    
+    def fwhm(self):
+        return self.p_fwhm
+    

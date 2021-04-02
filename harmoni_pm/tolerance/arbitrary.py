@@ -28,10 +28,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+from .error_distribution import ErrorDistribution
 from ..common.exceptions import InvalidTensorShapeError
 from ..common.array import FloatArray
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import root
+
 import numpy as np
 
 #
@@ -40,39 +42,60 @@ import numpy as np
 # 
 HARMONI_PM_GEN_MAX_SLICE_SIZE = 100000
 
-class Distribution():
+class Arbitrary(ErrorDistribution):
     def __init__(self, x, p, deg = 3):
         if x.shape != p.shape:
-            raise InvalidTensorShapeError("X sample point vector does not match probability density function")
+            raise InvalidTensorShapeError(
+                "X sample point vector does not match probability density function")
         
         if len(x.shape) != 1:
-            raise InvalidTensorShapeError("Arbitrary tensor-shaped distributions not yet supported")
+            raise InvalidTensorShapeError(
+                "Arbitrary tensor-shaped distributions not yet supported")
         
         self.x    = FloatArray.make(x)
         self.p    = FloatArray.make(p)
+        
         self.area = np.trapz(self.p, self.x)
         self.p   /= self.area
         self.peak = np.max(self.p)
         
-        self.x0      = x[0]
-        self.delta_x = x[-1] - x[0]
-        
+        self.x0         = x[0]
+        self.delta_x    = x[-1] - x[0]
         self.score_prop = self.area / (self.delta_x * self.peak)
+        self.p_spline   = UnivariateSpline(
+            self.x, 
+            self.p, 
+            s = 0, 
+            k = deg, 
+            ext = 1)
         
-        self.p_spline = UnivariateSpline(self.x, self.p, s = 0, k = deg, ext = 3)
+        mu = np.trapz(x * self.p, x)
+        sigma = np.sqrt(np.trapz((x - mu) ** 2 * self.p, x))
         
-        self.mu = np.trapz(x * self.p, x)
-        self.sigma2 = np.trapz((x - self.mu) ** 2 * self.p, x)
+        #
+        # Find FWHM of this distribution. Extreme values of x are a good starting point
+        # TODO: find a more appropriate technique
+        #
+        roots = root(
+            lambda x: self.p_spline(x) - .5 * self.peak,
+            np.linspace(self.x[0], self.x[-1], 10)).x
         
+        delta_min = self.x[1] - self.x[0]
+        delta_max = self.x[-1] - self.x[-2]
         
-    def mu(self):
-        return self.mu
+        roots = roots[
+            (roots >= self.x[0] - delta_min) & 
+            (roots <= self.x[-1] + delta_max)]
+        
+        hm_lo = np.min(roots)
+        hm_hi = np.max(roots)
+        
+        self.p_fwhm = np.abs(hm_hi - hm_lo)
+        
+        super().__init__(mu, sigma)
     
-    def sigma2(self):
-        return self.sigma2
-    
-    def sd(self):
-        return np.sqrt(self.sigma2)
+    def fwhm(self):
+        return self.p_fwhm
     
     def _generate(self, n, up_to):        
         ux  = np.random.uniform(0, 1, n)
@@ -108,7 +131,3 @@ class Distribution():
             gen_size = HARMONI_PM_GEN_MAX_SLICE_SIZE
 
         return FloatArray.make(self._generate(gen_size, n))
-        
-    def seed(self, seed):
-        np.random.seed(seed)
-        

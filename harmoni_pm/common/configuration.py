@@ -77,6 +77,8 @@ class Entry:
         return repr(self.value)
     
     def parse(self, asstr):
+        # Some quantities may be uncertain with a distribution
+        
         self.set(ast.literal_eval(asstr))
         
 class Section:

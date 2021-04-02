@@ -33,9 +33,8 @@ from ..common import FloatArray
 
 import numpy as np
 
-HARMONI_POA_FIELD_RADIUS  = 5 # Random value
-HARMONI_POA_ARM_RADIUS    = 5 # Random value
-HARMONI_POA_MAGNIFICATION = 1
+HARMONI_POA_FIELD_RADIUS  = 0.4 # 400mm field
+HARMONI_POA_ARM_RADIUS    = 0.4 # 400mm radius
 
 class POATransform(Transform):
     def __init__(self, theta, phi):
@@ -62,10 +61,10 @@ class POATransform(Transform):
         pass
     
     def _forward_matrix(self, p):
-        return self.fwd_rot.dot((p - self.center).transpose()) / HARMONI_POA_MAGNIFICATION
+        return self.fwd_rot.dot((p - self.center).transpose())
     
     def _forward(self, p):
-        return self.fwd_rot.dot(p - self.center) / HARMONI_POA_MAGNIFICATION
+        return self.fwd_rot.dot(p - self.center)
     
     def _backward_matrix(self, p):
         return self.bwd_rot.dot(p.transpose() * HARMONI_POA_MAGNIFICATION).transpose() + self.center

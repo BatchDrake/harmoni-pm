@@ -35,30 +35,60 @@ Q = UnitRegistry().Quantity
 
 class QuantityType(object):
     def __init__(self, base_units, value = 0, error = 0, tol = 0):
-        self.units = base_units
-        
         if tol > 0:
-            self.value = Q(value, self.units).plus_minus(tol, relative = True)
-        elif error > 0:
-            self.value = Q(value, self.units).plus_minus(error)
+            self._value = Q(value, base_units).plus_minus(tol, relative = True)
         else:
-            self.value = Q(value, self.units)
+            self._value = Q(value, base_units).plus_minus(error)
+        self._units = str(self._value.units)
+        
+    def units(self):
+        return self._units
+    
+    def value(self, units = None):
+        if units is None:
+            return self._value.value.magnitude
+        else:
+            return self._value.to(units).value.magnitude
+    
+    def error(self, units = None):
+        if units is None:
+            return self._value.error.magnitude
+        else:
+            return self._value.to(units).error.magnitude
+    
+    def _set_value_error(self, value, error):
+        self._value = Q(value, self._units).plus_minus(error)
+        
+    def set_value(self, value, units = None):
+        error = self.error()
+        if units is not None:
+            quantity = Q(value, units)
+            value    = quantity.to(self._units).magnitude
+            
+        self._set_value_error(value, error)
+        
+    def set_error(self, error, units = None):
+        value = self.value()
+        if units is not None:
+            quantity = Q(error, units)
+            error = quantity.to(self._units).magnitude
+        
+        self._set_value_error(value, error)
         
     def __call__(self, asstr):
         try:
             quantity = Q(asstr)
-            self.value = quantity.to(self.units)
+            self._value = quantity.to(self._units)
             return self
         except:
             raise argparse.ArgumentTypeError(
                 "{0} is not a quantity that can be converted to {1}s".format(
                     asstr, 
-                    self.units))
+                    self._units))
         
     def __getitem__(self, key):
-        return self.value.to(key).magnitude
+        return self.value(key)
     
     def __setitem__(self, key, value):
-        quantity = Q(value, key)
-        self.value = quantity.to(self.units)
+        self.set_value(value, key)
     

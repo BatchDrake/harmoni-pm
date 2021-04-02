@@ -28,18 +28,19 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import QuantityType
 
-class Quantity(object):
-    def __init__(self, dist, units):
-        self.dist = dist
-        self.value = QuantityType(dist.mu())
-        self.error = dist.sd()
-        pass
-    
-    def seed(self, seed):
-        pass
+from harmoni_pm.tolerance.error_distribution import ErrorDistribution
+from numpy import ones
+from ..common import FloatArray
+
+FWHM_TO_SD_FACTOR =  0.288675134594813 # 1 / sqrt(12)
+
+class DiracDelta(ErrorDistribution):
+    def __init__(self, mu, ignored_error = 0):
+        super().__init__(mu, 0)
+        
+    def fwhm(self):
+        return 0
     
     def generate(self, n = 1):
-        pass
-    
+        return FloatArray.make(self.mu() * ones(n))

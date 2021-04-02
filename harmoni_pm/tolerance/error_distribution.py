@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,17 +28,29 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-class InvalidPrototypeError(ValueError):
-    pass
+from ..common.exceptions import AbstractClassCallError
+import numpy as np
 
-class InvalidTensorShapeError(ValueError):
-    pass
-
-class InvalidFileTypeError(ValueError):
-    pass
-
-class AbstractClassCallError(ValueError):
-    pass
-
-class InvalidQuantityRepresentation(ValueError):
-    pass
+class ErrorDistribution():
+    def __init__(self, mu, sigma):
+        self.p_mu = mu
+        self.p_sigma = sigma        
+        
+    def mu(self):
+        return self.p_mu
+    
+    def sigma2(self):
+        return self.p_sigma * self.p_sigma
+    
+    def sd(self):
+        return self.p_sigma
+        
+    def fwhm(self):
+        raise AbstractClassCallError("Calling a virtual method in abstract class")
+    
+    def generate(self, n = 1):        
+        raise AbstractClassCallError("Calling a virtual method in abstract class")
+        
+    def seed(self, seed):
+        np.random.seed(seed)
+    

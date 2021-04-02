@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -28,17 +28,22 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-class InvalidPrototypeError(ValueError):
-    pass
+from harmoni_pm.tolerance.error_distribution import ErrorDistribution
+from numpy.random import uniform
+from ..common import FloatArray
 
-class InvalidTensorShapeError(ValueError):
-    pass
+FWHM_TO_SD_FACTOR =  0.288675134594813 # 1 / sqrt(12)
 
-class InvalidFileTypeError(ValueError):
-    pass
-
-class AbstractClassCallError(ValueError):
-    pass
-
-class InvalidQuantityRepresentation(ValueError):
-    pass
+class Uniform(ErrorDistribution):
+    def __init__(self, mu, err):
+        self.p_fwhm = 2 * err
+        super().__init__(mu, self.p_fwhm * FWHM_TO_SD_FACTOR)
+        
+    def fwhm(self):
+        return self.p_fwhm
+    
+    def generate(self, n = 1):
+        return FloatArray.make(uniform(
+            self.mu() - .5 * self.p_fwhm, 
+            self.mu() + .5 * self.p_fwhm,
+            n)) 
