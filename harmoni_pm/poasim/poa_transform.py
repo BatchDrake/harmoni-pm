@@ -30,17 +30,42 @@
 
 from ..transform import Transform
 from ..common import FloatArray
+from ..tolerance import GenerativeQuantity
 
 import numpy as np
+
 
 HARMONI_POA_FIELD_RADIUS  = 0.4 # 400mm field
 HARMONI_POA_ARM_RADIUS    = 0.4 # 400mm radius
 
+HARMONI_POA_ENCODER_BITS  = 10  # bits
+HARMONI_POA_POSITION_OFFSET = "0.5+/-0.5 dimensionless (flat)" # units w.r.t level
+
 class POATransform(Transform):
     def __init__(self, theta, phi):
-        self.set_axis_angles(theta, phi)
+        self.step_count = 2 ** HARMONI_POA_ENCODER_BITS
+        self.pos_off    = GenerativeQuantity(HARMONI_POA_POSITION_OFFSET)
         
+        self.set_axis_angles(theta, phi)
+    
+    def quantize_theta_phi(self, theta, phi):
+        theta /= 2 * np.pi
+        phi   /= 2 * np.pi
+        
+        theta -= np.floor(theta)
+        phi   -= np.floor(phi)
+        
+        digital_theta = (
+            np.floor(theta * self.step_count) + self.pos_off.generate()) / self.step_count
+             
+        digital_phi   = (
+            np.floor(phi   * self.step_count) + self.pos_off.generate()) / self.step_count
+        
+        return (digital_theta * 2 * np.pi, digital_phi * 2 * np.pi)
+    
     def set_axis_angles(self, theta, phi):
+        theta, phi = self.quantize_theta_phi(theta, phi)
+        
         self.theta   = theta
         self.phi     = phi
         self.rotangl = phi - theta
