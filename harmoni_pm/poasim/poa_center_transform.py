@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
@@ -30,37 +30,19 @@
 
 from ..transform import Transform 
 
-import numpy as np
-
-class POATransform(Transform):
+class POACenterTransform(Transform):
     def __init__(self, model):
         self.model = model
-        self.set_axis_angles(0, 0)
-
-    def set_axis_angles(self, theta, phi):
-        m_thetaphi = self.model.model_theta_phi((theta, phi))
+        self.set_configuration_sign(1)
         
-        self.center = self.model.xy_from_theta_phi(m_thetaphi)
-        self.fwd_rot = self.model.R_from_theta_phi(m_thetaphi)
-            
-        self.bwd_rot = np.transpose(self.fwd_rot)
+    def set_configuration_sign(self, sign):
+        self.mirror = sign < 0
         
-    def get_cost(self):
-        return 0
-    
-    def reset_cost(self):
-        pass
-    
     def _forward_matrix(self, p):
-        return self.fwd_rot.dot((p - self.center).transpose()).transpose()
-    
-    def _forward(self, p):
-        return self.fwd_rot.dot(p - self.center)
+        R = self.model.model_xy(p)
+        return R
     
     def _backward_matrix(self, p):
-        return self.bwd_rot.dot(p.transpose()).transpose() + self.center
-    
-    def _backward(self, p):
-        return self.bwd_rot.dot(p) + self.center
-
+        # Compute displacement from p, invert sign, add to p
+        return (p - self._forward_matrix(p)) + p 
     

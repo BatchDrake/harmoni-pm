@@ -33,6 +33,8 @@ from ..poasim import POATransform
 from ..common import Configuration
 from  .fprs_transform import FPRSTransform
 from numpy import exp
+from harmoni_pm.poasim.poa_model import POAModel
+from harmoni_pm.poasim.poa_center_transform import POACenterTransform
 
 HARMONI_FPRS_APERTURE   = 1. # Meters
 HARMONI_FPRS_TAU        = 0. # Dimensionless
@@ -53,14 +55,21 @@ class OpticalModel:
     def __init__(self):
         self._init_configuration()
         
+        self.poa_model      = POAModel(None)
+        
         self.fprs_transform = FPRSTransform()
-        self.poa_transform = POATransform(0, 0)
+        self.poa_transform = POATransform(self.poa_model)
+        self.poa_center_transform = POACenterTransform(self.poa_model)
         self.transform = CompositeTransform()
+        self.pointing_transform = CompositeTransform()
         
         self.cal_select = True
         
         self.transform.push_back(self.fprs_transform)
         self.transform.push_back(self.poa_transform)
+    
+        self.pointing_transform.push_back(self.fprs_transform)
+        self.pointing_transform.push_back(self.poa_center_transform)
     
     def intensity_to_flux(self):
         return self.fprs_aperture * self.fprs_atten
@@ -74,6 +83,9 @@ class OpticalModel:
         
     def get_transform(self):
         return self.transform
+    
+    def get_pointing_transform(self):
+        return self.pointing_transform
     
     def set_cal(self, cal_select):
         if cal_select is not self.cal_select:
