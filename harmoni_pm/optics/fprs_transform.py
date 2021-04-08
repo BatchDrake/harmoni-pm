@@ -28,12 +28,28 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+from ..common import Configuration
 from ..transform import Transform
 
 class FPRSTransform(Transform):
-    def __init__(self):
-        pass
+    def _init_configuration(self):
+        self.params = Configuration()
         
+        self.params["fprs.desc_file"] = "EDIT_ME.TXT"
+        
+    def _extract_params(self):
+        self.desc_file = self.params["fprs.desc_file"]
+        
+    def set_params(self, params = None):
+        if params is not None:
+            self.params.copy_from(params)
+            
+        self._extract_params()
+        
+    def __init__(self, params = None):
+        self._init_configuration()
+        self.set_params(params)
+
     def _forward_matrix(self, p):
         return p
     

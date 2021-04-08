@@ -29,6 +29,7 @@
 #
 
 import numpy as np
+from ..common.configuration import Configuration
 from ..tolerance import GenerativeQuantity
 from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
@@ -39,19 +40,29 @@ HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t l
 HARMONI_POA_ARM_LENGTH      = "0.4 +/- 1e-6 m (gauss)"
 
 class POAModel:
-    def __init__(self, config):
-        self.set_config(config)
+    def _init_configuration(self):
+        self.params = Configuration()
         
-    def set_config(self, config):
-        # TODO: actually take these values from POA configuration
+        self.params["poa.position_offset"] = HARMONI_POA_POSITION_OFFSET
+        self.params["poa.encoder.bits"]    = HARMONI_POA_ENCODER_BITS
+        self.params["poa.radius"]          = HARMONI_POA_ARM_LENGTH
         
-        self.config = config
-        
-        self.step_count = 2 ** HARMONI_POA_ENCODER_BITS
-        self.pos_off    = GenerativeQuantity.make(HARMONI_POA_POSITION_OFFSET)
-        self.arm_length = GenerativeQuantity.make(HARMONI_POA_ARM_LENGTH)
+    def _extract_params(self):
+        self.pos_off = GenerativeQuantity.make(self.params["poa.position_offset"])
+        self.arm_length = GenerativeQuantity.make(self.params["poa.radius"])
         self.R          = self.arm_length["meters"]
+        self.step_count = 2 ** self.params["poa.encoder.bits"]
         
+    def set_params(self, params = None):
+        if params is not None:
+            self.params.copy_from(params)
+            
+        self._extract_params()
+        
+    def __init__(self, params = None):
+        self._init_configuration()
+        self.set_params(params)
+
     def xy_to_theta_phi(self, xy, mirror = False):
         sign    = -1 if mirror else 1
         rho     = np.linalg.norm(xy, axis = 1)

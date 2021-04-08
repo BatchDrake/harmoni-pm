@@ -28,11 +28,30 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+from ..common import Configuration
+from ..tolerance import GenerativeQuantity
 from ..transform import Transform
 
+HARMONI_IRW_ANGLE_BIAS = "0 radians"
+
 class IRWTransform(Transform):
-    def __init__(self):
-        pass
+    def _init_configuration(self):
+        self.params = Configuration()
+        
+        self.params["irw.angle_bias"] = HARMONI_IRW_ANGLE_BIAS
+        
+    def _extract_params(self):
+        self.delta_theta = GenerativeQuantity.make(self.params["irw.angle_bias"])
+        
+    def set_params(self, params = None):
+        if params is not None:
+            self.params.copy_from(params)
+            
+        self._extract_params()
+        
+    def __init__(self, params = None):
+        self._init_configuration()
+        self.set_params(params)
         
     def _forward_matrix(self, p):
         return p

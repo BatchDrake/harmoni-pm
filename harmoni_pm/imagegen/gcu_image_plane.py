@@ -48,9 +48,16 @@ class GCUImagePlane(ImagePlane):
         self.p_int      = self.params["point.intensity"]
         self.m_diameter = self.params["mask.diameter"]
         
-        self.m_p0       = FloatArray.make([self.params["mask.x0"], self.params["mask.y0"]])
-        
-    def _init_configuration(self):
+        self.m_p0       = FloatArray.make(
+            [self.params["mask.x0"], self.params["mask.y0"]])
+
+    def set_params(self, params = None):
+        if params is not None:
+            self.params.copy_from(params)
+            
+        self._extract_params()
+                
+    def _init_params(self):
         self.params = Configuration()
         
         self.params["point.separation"] = HARMONI_GCU_POINT_SEPARATION
@@ -59,15 +66,11 @@ class GCUImagePlane(ImagePlane):
         self.params["mask.x0"]          = HARMONI_GCU_MASK_X0
         self.params["mask.y0"]          = HARMONI_GCU_MASK_Y0
         self.params["mask.diameter"]    = HARMONI_GCU_MASK_DIAMETER
-        
+       
     def __init__(self, params = None):
         super().__init__()
-        self._init_configuration()
-     
-        if params is not None:
-            self._copy_params(params)
-            
-        self._extract_params()
+        self._init_params()
+        self.set_params(params)
         
     def generate(self):
         pass
