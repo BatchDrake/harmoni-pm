@@ -33,10 +33,10 @@ from ..tolerance import GenerativeQuantity
 from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
 
-HARMONI_POA_ENCODER_BITS    = 11  # bits
+HARMONI_POA_ENCODER_BITS    = 11
 
 HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
-HARMONI_POA_ARM_LENGTH      = "0.4 +/- 1e-5 m"
+HARMONI_POA_ARM_LENGTH      = "0.4 +/- 1e-6 m (gauss)"
 
 class POAModel:
     def __init__(self, config):
@@ -58,8 +58,8 @@ class POAModel:
         alpha   = np.arctan2(xy[:, 1], xy[:, 0])
         cos_phi = 1 - .5 * rho ** 2 / self.R ** 2
         phi     = sign * np.arccos(cos_phi)
-        beta    = np.arctan2(1 - cos_phi, np.sin(phi))
-        theta   = phi + alpha - (beta + .5 * np.pi)
+        beta    = np.arctan2(np.sin(phi), 1 - cos_phi)
+        theta   = alpha - beta
         
         return np.column_stack((theta, phi))
     
@@ -116,7 +116,7 @@ class POAModel:
         digital_phi   = (
             np.floor(theta_phi[:, 1]  * self.step_count) + self.pos_off.generate(n)) / self.step_count
         
-        return 2 * np.pi * np.column_stack((digital_theta, digital_phi))
+        return FloatArray.make(2 * np.pi * np.column_stack((digital_theta, digital_phi)))
     
     def model_xy_from_theta_phi(self, theta_phi):
         q_theta_phi = self.model_theta_phi(theta_phi)

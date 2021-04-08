@@ -51,7 +51,7 @@ class PointingSimulator(PlaneSampler):
         
         self.pointing_transform = self.model.get_pointing_transform()
         
-    def _reset_measures(self):
+    def reset_measures(self):
         self.model.move_to(0, 0)
         
         self.measures = np.zeros([self.cols, self.rows])
@@ -67,37 +67,33 @@ class PointingSimulator(PlaneSampler):
         
     def precalculate(self):
         super().precalculate()
-        self._reset_measures()
+        self.reset_measures()
     
     def plot(self):
         axes = FloatArray.make(
             [self.xmin(), self.xmax(), self.ymin(), self.ymax()])
         
         plt.imshow(
-            1e3 * self.measures.transpose(), 
+            1e6 * self.measures.transpose(), 
             cmap = plt.get_cmap("inferno"),
             extent = 1e3 * axes)
         plt.xlabel('X (mm)')
         plt.ylabel('Y (mm)')
         
         c = plt.colorbar()
-        c.set_label("Pointing error (mm)")
+        c.set_label("Pointing error (µm)")
+        
+        plt.title("Pointing error map")
         
     def show(self):
         plt.show()
         
 ps = PointingSimulator(Configuration)
-ps.set_sampling_properties(400, 400, 1e-4, 1e-4, radius = 0.2)
+ps.set_sampling_properties(1000, 1000, .5e-3, .5e-3, radius = 0.2)
 
-for i in range(4):
-    row = i / 2
-    col = i % 2
-    print("Drawing", i)
-    plt.subplot(2, 2, i + 1)
-    
-    ps._reset_measures()
-    ps.process()
-    ps.plot()
+ps.reset_measures()
+ps.process()
+ps.plot()
     
 ps.show()
 

@@ -60,6 +60,7 @@ class OpticalModel:
         self.fprs_transform = FPRSTransform()
         self.poa_transform = POATransform(self.poa_model)
         self.poa_center_transform = POACenterTransform(self.poa_model)
+        
         self.transform = CompositeTransform()
         self.pointing_transform = CompositeTransform()
         
