@@ -29,7 +29,7 @@
 #
 
 from ..common import Configuration
-from ..tolerance import GenerativeQuantity
+from ..tolerance import GQ
 from ..transform import Transform
 
 HARMONI_IRW_ANGLE_BIAS = "0 radians"
@@ -41,7 +41,7 @@ class IRWTransform(Transform):
         self.params["irw.angle_bias"] = HARMONI_IRW_ANGLE_BIAS
         
     def _extract_params(self):
-        self.delta_theta = GenerativeQuantity.make(self.params["irw.angle_bias"])
+        self.delta_theta = GQ(self.params["irw.angle_bias"])
         
     def set_params(self, params = None):
         if params is not None:

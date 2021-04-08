@@ -38,6 +38,9 @@ import re
 
 FLOAT_POINT_RE = "(\d+([.]\d*)?([eE][+-]?\d+)?|[.]\d+([eE][+-]?\d+)?)"
 
+def GQ(string):
+    return GenerativeQuantity.make(string)
+
 class GenerativeQuantity(QuantityType):
     def __init__(self, dist, units):
         self.dist = dist

@@ -30,7 +30,7 @@
 
 import numpy as np
 from ..common.configuration import Configuration
-from ..tolerance import GenerativeQuantity
+from ..tolerance import GQ
 from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
 
@@ -48,8 +48,8 @@ class POAModel:
         self.params["poa.radius"]          = HARMONI_POA_ARM_LENGTH
         
     def _extract_params(self):
-        self.pos_off = GenerativeQuantity.make(self.params["poa.position_offset"])
-        self.arm_length = GenerativeQuantity.make(self.params["poa.radius"])
+        self.pos_off    = GQ(self.params["poa.position_offset"])
+        self.arm_length = GQ(self.params["poa.radius"])
         self.R          = self.arm_length["meters"]
         self.step_count = 2 ** self.params["poa.encoder.bits"]
         

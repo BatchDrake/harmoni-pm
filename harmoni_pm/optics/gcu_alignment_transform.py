@@ -29,7 +29,7 @@
 #
 
 from ..common import Configuration
-from ..tolerance import GenerativeQuantity
+from ..tolerance import GQ
 from ..transform import Transform
 
 HARMONI_GCU_ALIGNMENT_X = "0 m"
@@ -43,8 +43,8 @@ class GCUAlignmentTransform(Transform):
         self.params["gcu_alignment.y0"] = HARMONI_GCU_ALIGNMENT_Y
         
     def _extract_params(self):
-        self.x0 = GenerativeQuantity.make(self.params["gcu_alignment.x0"])
-        self.y0 = GenerativeQuantity.make(self.params["gcu_alignment.y0"])
+        self.x0 = GQ(self.params["gcu_alignment.x0"])
+        self.y0 = GQ(self.params["gcu_alignment.y0"])
         
     def set_params(self, params = None):
         if params is not None:
