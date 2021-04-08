@@ -30,7 +30,7 @@
 
 from ..transform import Transform
 
-class FPRSTransform(Transform):
+class IRWTransform(Transform):
     def __init__(self):
         pass
         

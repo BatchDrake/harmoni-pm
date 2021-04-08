@@ -30,7 +30,7 @@
 
 from ..transform import Transform
 
-class FPRSTransform(Transform):
+class NGSSAlignmentTransform(Transform):
     def __init__(self):
         pass
         

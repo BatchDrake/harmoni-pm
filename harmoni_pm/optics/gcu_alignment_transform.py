@@ -30,7 +30,7 @@
 
 from ..transform import Transform
 
-class FPRSTransform(Transform):
+class GCUAlignmentTransform(Transform):
     def __init__(self):
         pass
         

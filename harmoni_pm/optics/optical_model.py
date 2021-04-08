@@ -31,7 +31,12 @@
 from ..transform import CompositeTransform
 from ..poasim import POATransform
 from ..common import Configuration
-from  .fprs_transform import FPRSTransform
+
+from .gcu_alignment_transform import GCUAlignmentTransform
+from .fprs_transform import FPRSTransform
+from .irw_transform import IRWTransform
+from .ngss_alignment_transform import NGSSAlignmentTransform
+
 from numpy import exp
 from harmoni_pm.poasim.poa_model import POAModel
 from harmoni_pm.poasim.poa_center_transform import POACenterTransform
@@ -52,25 +57,44 @@ class OpticalModel:
         
         self._extract_params()
         
-    def __init__(self):
-        self._init_configuration()
+    def _push_common_transforms(self, c):
+        if self.cal_select:
+            c.push_back(self.gcu_alignment_transform)
+            
+        c.push_back(self.fprs_transform)
+        c.push_back(self.irw_transform)
+        c.push_back(self.ngss_alignment_transform)
         
-        self.poa_model      = POAModel(None)
-        
-        self.fprs_transform = FPRSTransform()
-        self.poa_transform = POATransform(self.poa_model)
-        self.poa_center_transform = POACenterTransform(self.poa_model)
-        
+    def _rebuild_transforms(self):
+        # Create composite transforms
         self.transform = CompositeTransform()
         self.pointing_transform = CompositeTransform()
         
-        self.cal_select = True
-        
-        self.transform.push_back(self.fprs_transform)
+        # Build transforms
+        self._push_common_transforms(self.transform)
         self.transform.push_back(self.poa_transform)
     
-        self.pointing_transform.push_back(self.fprs_transform)
+        self._push_common_transforms(self.pointing_transform)
         self.pointing_transform.push_back(self.poa_center_transform)
+        
+    def __init__(self):
+        self._init_configuration()
+        
+        # Initialize Pick-Off Arm Model
+        self.poa_model                = POAModel(None)
+        
+        # Initialize transforms
+        self.gcu_alignment_transform  = GCUAlignmentTransform()
+        self.fprs_transform           = FPRSTransform()
+        self.irw_transform            = IRWTransform()
+        self.ngss_alignment_transform = NGSSAlignmentTransform()
+        
+        self.poa_transform            = POATransform(self.poa_model)
+        self.poa_center_transform     = POACenterTransform(self.poa_model)
+
+        self.cal_select = True
+        
+        self._rebuild_transforms()
     
     def intensity_to_flux(self):
         return self.fprs_aperture * self.fprs_atten
@@ -91,7 +115,7 @@ class OpticalModel:
     def set_cal(self, cal_select):
         if cal_select is not self.cal_select:
             self.cal_select = cal_select
-            # TODO: Add or remove telescope-specific transforms
+            self._rebuild_transforms()
             pass
     
     def move_to(self, theta, phi):
