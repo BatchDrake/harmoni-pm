@@ -40,7 +40,7 @@ HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t l
 HARMONI_POA_ARM_LENGTH      = "0.4 +/- 1e-6 m (gauss)"
 
 class POAModel:
-    def _init_configuration(self):
+    def _init_params(self):
         self.params = Configuration()
         
         self.params["poa.position_offset"] = HARMONI_POA_POSITION_OFFSET
@@ -60,7 +60,7 @@ class POAModel:
         self._extract_params()
         
     def __init__(self, params = None):
-        self._init_configuration()
+        self._init_params()
         self.set_params(params)
 
     def xy_to_theta_phi(self, xy, mirror = False):

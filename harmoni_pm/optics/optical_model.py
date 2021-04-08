@@ -49,11 +49,26 @@ class OpticalModel:
         self.fprs_atten    = exp(-self.params["fprs.tau"])
         self.fprs_aperture = self.params["fprs.aperture"]
     
-    def _init_configuration(self):
+    def _init_params(self):
         self.params = Configuration()
         
         self.params["fprs.aperture"] = HARMONI_FPRS_APERTURE 
         self.params["fprs.tau"]      = HARMONI_FPRS_TAU
+        
+        self._extract_params()
+        
+    def set_params(self, params = None):
+        # Propagate new params to all components and transforms
+        
+        self.gcu_alignment_transform.set_params(params)
+        self.fprs_transform.set_params(params)
+        self.irw_transform.set_params(params)
+        self.ngss_alignment_transform.set_params(params)
+        
+        self.poa_model.set_params(params)
+        
+        if params is not None:
+            self.params.copy_from(params)
         
         self._extract_params()
         
@@ -77,8 +92,8 @@ class OpticalModel:
         self._push_common_transforms(self.pointing_transform)
         self.pointing_transform.push_back(self.poa_center_transform)
         
-    def __init__(self):
-        self._init_configuration()
+    def __init__(self, params = None):
+        self._init_params()
         
         # Initialize Pick-Off Arm Model
         self.poa_model                = POAModel(None)
@@ -88,12 +103,14 @@ class OpticalModel:
         self.fprs_transform           = FPRSTransform()
         self.irw_transform            = IRWTransform()
         self.ngss_alignment_transform = NGSSAlignmentTransform()
-        
         self.poa_transform            = POATransform(self.poa_model)
         self.poa_center_transform     = POACenterTransform(self.poa_model)
 
-        self.cal_select = True
+        # Define default value for CAL select
+        self.cal_select               = True
         
+        # Make parameters effective
+        self.set_params(params)
         self._rebuild_transforms()
     
     def intensity_to_flux(self):
