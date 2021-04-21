@@ -51,6 +51,9 @@ class POATransform(Transform):
     def reset_cost(self):
         pass
     
+    def generate(self):
+        pass
+    
     def _forward_matrix(self, p):
         return self.fwd_rot.dot((p - self.center).transpose()).transpose()
     

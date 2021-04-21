@@ -41,19 +41,12 @@ from numpy import exp
 from harmoni_pm.poasim.poa_model import POAModel
 from harmoni_pm.poasim.poa_center_transform import POACenterTransform
 
-HARMONI_FPRS_APERTURE   = 1. # Meters
-HARMONI_FPRS_TAU        = 0. # Dimensionless
- 
 class OpticalModel:
     def _extract_params(self):
-        self.fprs_atten    = exp(-self.params["fprs.tau"])
-        self.fprs_aperture = self.params["fprs.aperture"]
+        pass
     
     def _init_params(self):
         self.params = Configuration()
-        
-        self.params["fprs.aperture"] = HARMONI_FPRS_APERTURE 
-        self.params["fprs.tau"]      = HARMONI_FPRS_TAU
         
         self._extract_params()
         
@@ -96,13 +89,13 @@ class OpticalModel:
         self._init_params()
         
         # Initialize Pick-Off Arm Model
-        self.poa_model                = POAModel(None)
+        self.poa_model                = POAModel(params)
         
         # Initialize transforms
-        self.gcu_alignment_transform  = GCUAlignmentTransform()
-        self.fprs_transform           = FPRSTransform()
-        self.irw_transform            = IRWTransform()
-        self.ngss_alignment_transform = NGSSAlignmentTransform()
+        self.gcu_alignment_transform  = GCUAlignmentTransform(params)
+        self.fprs_transform           = FPRSTransform(params)
+        self.irw_transform            = IRWTransform(params)
+        self.ngss_alignment_transform = NGSSAlignmentTransform(params)
         self.poa_transform            = POATransform(self.poa_model)
         self.poa_center_transform     = POACenterTransform(self.poa_model)
 
@@ -114,7 +107,7 @@ class OpticalModel:
         self._rebuild_transforms()
     
     def intensity_to_flux(self):
-        return self.fprs_aperture * self.fprs_atten
+        return 1
      
     def load_description(self, path):
         self.params.load(path)
@@ -139,4 +132,11 @@ class OpticalModel:
         self.poa_transform.set_axis_angles(theta, phi)
     
     def generate(self):
+        # Be careful!! Many transforms in the pointing transform and the
+        # the optics transform are shared! 
+        self.poa_model.generate()
+        
         self.transform.generate()
+        self.pointing_transform.generate()
+        
+        

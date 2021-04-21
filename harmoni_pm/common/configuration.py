@@ -38,22 +38,24 @@ class Entry:
         if type(datatype) is not type:
             raise ValueError("datatype must be type (not {0})".format(type(datatype).__name__))
         
+        self.type    = datatype
+        
         if type(name) is not str:
             raise ValueError("name must be a string (not {0})".format(type(name).__name__))
         
         if type(default) is not datatype:
             raise ValueError(
                 "Invalid default value (must be {0}, not {1})".format(
-                    self.datatype.__name__,
+                    self.type.__name__,
                     type(default).__name__))
         
         if value is not None and type(value) is not datatype:
             raise ValueError(
                 "Invalud value (must be {0}, not {1})".format(
-                    self.datatype.__name__,
+                    self.type.__name__,
                     type(value).__name__))
         
-        self.type    = datatype
+        
         self.name    = name
         self.default = default
         
@@ -66,10 +68,10 @@ class Entry:
         return self.value
     
     def set(self, value):
-        if value is not self.datatype:
+        if type(value) is not self.type:
             raise ValueError(
                 "Invalid value (must be {0}, not {1})".format(
-                    self.datatype.__name__,
+                    self.type.__name__,
                     type(value).__name__))
         self.value = value
         
@@ -92,7 +94,7 @@ class Section:
             self.entries[name] = Entry(type(value), name, value)
         else:
             # Existing entry. Attempt to set value
-            self.entries[name].set(name, value)
+            self.entries[name].set(value)
             
     def have(self, name):
         return name in self.entries
@@ -115,7 +117,7 @@ class Section:
         
         return self.entries[name].as_str()
     
-    def entries(self):
+    def get_entries(self):
         return self.entries.keys()
     
     def as_dict(self):
@@ -142,8 +144,8 @@ class Configuration:
     def copy_from(self, config):
         for i in config.sections.keys():
             section = self.upsert_section(i)
-            for j in config.sections[i].keys():
-                section.set(j, config.sections[i].get[j])
+            for j in config.sections[i].get_entries():
+                section.set(j, config.sections[i].get(j))
                 
     def have_section(self, name):
         return name in self.sections
@@ -207,8 +209,12 @@ class Configuration:
     
     def load(self, file):
         cfgfile = ConfigParser()
-        cfgfile.read(file)
+        ok = len(cfgfile.read(file))
         
+        if ok == 0:
+            raise RuntimeError(
+                "Failed to open configuration file `{0}'".format(file))
+            
         for s in cfgfile.sections():
             for k in cfgfile[s]:
                 self.parse(s + "." + k, cfgfile[s][k])

@@ -29,6 +29,7 @@
 #
 
 from ..common import Configuration
+from ..common import FloatArray
 from ..tolerance import GQ
 from ..transform import Transform
 
@@ -46,6 +47,14 @@ class NGSSAlignmentTransform(Transform):
         self.x0 = GQ(self.params["ngss_alignment.x0"])
         self.y0 = GQ(self.params["ngss_alignment.y0"])
         
+        self.generate()
+        
+    def generate(self):
+        x0 = self.x0.generate(1, "m")
+        y0 = self.y0.generate(1, "m")
+
+        self.offset = FloatArray.make((x0, y0)).transpose()
+        
     def set_params(self, params = None):
         if params is not None:
             self.params.copy_from(params)
@@ -57,13 +66,13 @@ class NGSSAlignmentTransform(Transform):
         self.set_params(params)
         
     def _forward_matrix(self, p):
-        return p
+        return p + self.offset
     
     def _forward(self, p):
-        return p
+        return p + self.offset
     
     def _backward_matrix(self, p):
-        return p
+        return p - self.offset
     
     def _backward(self, p):
-        return p
+        return p - self.offset

@@ -31,29 +31,79 @@
 from harmoni_pm.transform import PlaneSampler
 from harmoni_pm.optics   import OpticalModel
 from harmoni_pm.common import FloatArray
+from uncertainties import ufloat
 
 import matplotlib.pyplot as plt
+from datetime import datetime
+
 
 import argparse, sys
 import numpy as np
 from harmoni_pm.common.configuration import Configuration
+from numpy import std
 
-POINTINGSIM_DEFAULT_FIELD_DIAMETER = 4e-1 # m
-POINTINGSIM_DEFAULT_FIELD_DELTA_X  = 1e-3 # m 
-POINTINGSIM_DEFAULT_FIELD_DELTA_Y  = 1e-3 # m
+POINTINGSIM_DEFAULT_OUTPUT_PREFIX = datetime.now().strftime("pointing_sim_%Y%m%d_%H%M%S")
 
 class PointingSimulator(PlaneSampler):
+    def _extract_config(self):
+        self.path            = self.config["config.file"]
+        self.N               = self.config["simulation.N"]
+        self.save_statistics = self.config["artifacts.save-statistics"]
+        self.save_sim        = self.config["artifacts.save-sim"]
+        self.do_plot         = self.config["artifacts.plot"]
+        
+        # Parse config tweaks
+        self.tweaks = []
+        for i in self.config["config.tweaks"]:
+            tweak = i[0].split("=", 1)
+            if len(tweak) == 2:
+                self.tweaks.append((tweak[0], tweak[1]))
+                
     def __init__(self, config):
         super().__init__()
         
         self.config = config
-        self.model  = OpticalModel()
+        self._extract_config()
+            
+        # Initialize model
+        model_config = Configuration()
+        model_config.load(self.path)
         
+        for tweak in self.tweaks:
+            try:
+                model_config.parse(tweak[0], tweak[1])
+            except SyntaxError:
+                model_config.set(tweak[0], tweak[1])
+                
+        self.model  = OpticalModel(model_config)
+        
+        # Get transform
         self.pointing_transform = self.model.get_pointing_transform()
+        
+    def print_summary(self):
+        print("PointingSim: the pointing error simulator")
+        print("  Model configuration file: {0}".format(self.config["config.file"]))
+        
+        if len(self.tweaks) > 0:
+            print("  Model overrides:")
+            for t in self.tweaks:
+                print("    {0} = {1}".format(t[0], t[1]))
+            
+        print("  Number of simulations: {0}".format(self.N))
+        print(
+            "  Save statistics:  {0}".format(
+                "yes" if self.save_statistics else "no"))
+        print(
+            "  Save simulations: {0}".format(
+                "yes" if self.save_sim else "no"))
+        print(
+            "  Plot results:     {0}".format(
+                "yes" if self.do_plot else "no"))
+        print("  ")
         
     def reset_measures(self):
         self.model.move_to(0, 0)
-        
+        self.model.generate()
         self.measures = np.zeros([self.cols, self.rows])
         
     def _process_region(self, ij, xy):
@@ -75,7 +125,7 @@ class PointingSimulator(PlaneSampler):
         
         plt.imshow(
             1e6 * self.measures.transpose(), 
-            cmap = plt.get_cmap("inferno"),
+            cmap   = plt.get_cmap("inferno"),
             extent = 1e3 * axes)
         plt.xlabel('X (mm)')
         plt.ylabel('Y (mm)')
@@ -88,12 +138,131 @@ class PointingSimulator(PlaneSampler):
     def show(self):
         plt.show()
         
-ps = PointingSimulator(Configuration)
-ps.set_sampling_properties(1000, 1000, .5e-3, .5e-3, radius = 0.2)
-
-ps.reset_measures()
-ps.process()
-ps.plot()
+    def run(self):
+        delays_total = 0
+        mean_total   = 0
+        std_total    = 0
+        time_total   = 0
+        
+        for i in range(self.N):
+            print("\rSimulation: {0:5}/{1}".format(i, self.N), end = '')
+            
+            self.reset_measures()
+            delays, mean, std, exec_time = self.process()
+            
+            delays_total += delays
+            mean_total   += mean
+            std_total    += std
+            time_total   += exec_time
+            
+            if self.do_plot:
+                self.plot()
+                print(" done. Close window to simulate again.")
+                self.show()
+                
+        mean_total /= self.N
+        std_total  /= self.N
+        
+        return (delays_total, ufloat(mean_total, std_total), time_total)
     
-ps.show()
+def config_from_cli():
+    config = Configuration()
+    
+    parser = argparse.ArgumentParser(
+        description = "Simulate HARMONI's pointing errors")
+    
+    parser.add_argument(
+        "-c",
+        "--config",
+        dest = "config_file",
+        default = "harmoni.ini",
+        help = "set the location of the pointing model description")
+    
+    parser.add_argument(
+        "-s",
+        "--set",
+        dest = "cli_tweaks",
+        default = [],
+        action = "append",
+        nargs = '*',
+        help = "override an entry in the configuration file")
+    
+    parser.add_argument(
+        "-p",
+        "--pattern",
+        dest = "pattern",
+        default = POINTINGSIM_DEFAULT_OUTPUT_PREFIX,
+        help = "set file name pattern for output files (may include dirs)")
+    
+    parser.add_argument(
+        "-N",
+        "--number",
+        dest = "N",
+        type = int,
+        default = 1000,
+        help = "set the number of simulations to run")
+    
+    parser.add_argument(
+        "-P",
+        "--plot",
+        dest = "plot",
+        default = False,
+        action = 'store_true',
+        help = "plot simulations using Matplotlib")
+    
+    parser.add_argument(
+        "-m",
+        "--statistics",
+        dest = "save_statistics",
+        default = False,
+        action = 'store_true',
+        help = "save statistical heatmaps on the pointing errors")
+    
+    parser.add_argument(
+        "-S",
+        "--save-sim",
+        dest = "save_sim",
+        default = False,
+        action = 'store_true',
+        help = "save all intermediate simulations (handle with care!)")
+    
+    args = parser.parse_args()
+    
+    config["config.file"] = args.config_file
+    config["config.tweaks"] = args.cli_tweaks
+    config["simulation.N"] = args.N
+    
+    config["artifacts.save-statistics"] = args.save_statistics
+    config["artifacts.save-sim"] = args.save_sim
+    config["artifacts.plot"] = args.plot
+    
+    return config
+
+import traceback
+########################### Program entry point ###############################
+try:
+    config = config_from_cli()
+except Exception as e:
+    print("Command line error: {0}".format(e))
+    traceback.print_exc()
+    sys.exit(1)
+    
+try:
+    sim = PointingSimulator(config)
+    sim.set_sampling_properties(400, 400, 2.5 * .5e-3, 2.5 * .5e-3, radius = 0.2)
+    sim.print_summary()
+    
+    print("Running...")
+    slices, rt, tt = sim.run()
+    
+    print("{0} slices, {1} s per slice".format(
+        slices, 
+        str(rt).replace("+/-", "±")))
+    print("Total execution time: {0} s".format(round(tt, 2)))
+    
+except Exception as e:
+    print("\033[1mSimulator exception: {0}\033[0m".format(e))
+    print()
+    traceback.print_exc()
+    sys.exit(1)
 

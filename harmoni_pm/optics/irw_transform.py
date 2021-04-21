@@ -29,8 +29,11 @@
 #
 
 from ..common import Configuration
+from ..common import FloatArray
 from ..tolerance import GQ
 from ..transform import Transform
+
+import numpy as np
 
 HARMONI_IRW_ANGLE_BIAS = "0 radians"
 
@@ -43,6 +46,18 @@ class IRWTransform(Transform):
     def _extract_params(self):
         self.delta_theta = GQ(self.params["irw.angle_bias"])
         
+        self.generate()
+        
+    def generate(self):
+        theta = self.delta_theta.generate(1, "radians")[0]
+        
+        self.prot = FloatArray.make(
+            [[np.cos(theta), np.sin(theta)],
+             [-np.sin(theta), np.cos(theta)]])
+        self.nrot = FloatArray.make(
+            [[np.cos(theta), -np.sin(theta)],
+             [np.sin(theta), np.cos(theta)]])
+    
     def set_params(self, params = None):
         if params is not None:
             self.params.copy_from(params)
@@ -54,13 +69,13 @@ class IRWTransform(Transform):
         self.set_params(params)
         
     def _forward_matrix(self, p):
-        return p
+        return self.prot.dot(p.transpose()).transpose()
     
     def _forward(self, p):
-        return p
+        return self.prot.dot(p)
     
     def _backward_matrix(self, p):
-        return p
+        return self.nrot.dot(p.transpose()).transpose()
     
     def _backward(self, p):
-        return p
+        return self.nrot.dot(p)

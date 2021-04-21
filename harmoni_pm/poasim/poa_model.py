@@ -46,12 +46,17 @@ class POAModel:
         self.params["poa.position_offset"] = HARMONI_POA_POSITION_OFFSET
         self.params["poa.encoder.bits"]    = HARMONI_POA_ENCODER_BITS
         self.params["poa.radius"]          = HARMONI_POA_ARM_LENGTH
+                    
+    def generate(self):
+        self.m_R        = self.arm_length.generate(1, "m")
         
     def _extract_params(self):
         self.pos_off    = GQ(self.params["poa.position_offset"])
         self.arm_length = GQ(self.params["poa.radius"])
         self.R          = self.arm_length["meters"]
         self.step_count = 2 ** self.params["poa.encoder.bits"]
+        
+        self.generate()
         
     def set_params(self, params = None):
         if params is not None:
@@ -62,7 +67,7 @@ class POAModel:
     def __init__(self, params = None):
         self._init_params()
         self.set_params(params)
-
+        
     def xy_to_theta_phi(self, xy, mirror = False):
         sign    = -1 if mirror else 1
         rho     = np.linalg.norm(xy, axis = 1)
@@ -134,7 +139,7 @@ class POAModel:
         theta       = q_theta_phi[:, 0]
         diff        = q_theta_phi[:, 1] - q_theta_phi[:, 0]
         n           = len(theta)
-        R           = self.arm_length.generate(n)
+        R           = self.arm_length.generate(n, "meters")
         x           = self.R * np.cos(theta) - R * np.cos(diff)
         y           = self.R * np.sin(theta) + R * np.sin(diff)
         
@@ -142,4 +147,4 @@ class POAModel:
 
     def model_xy(self, xy, mirror = False):
         return self.model_xy_from_theta_phi(self.xy_to_theta_phi(xy, mirror))
-        
+

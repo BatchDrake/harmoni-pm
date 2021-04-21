@@ -138,5 +138,5 @@ class GenerativeQuantity(QuantityType):
         if as_units is None:
             return self.dist.generate(n)
         else:
-            return Q(self.dist.generate(n), self.units()).to(as_units)
+            return Q(self.dist.generate(n), self.units()).to(as_units).magnitude
     
