@@ -31,6 +31,8 @@
 from harmoni_pm.transform import PlaneSampler
 from harmoni_pm.optics   import OpticalModel
 from harmoni_pm.common import FloatArray
+from harmoni_pm.imagegen import GCUImagePlane
+
 from uncertainties import ufloat
 
 import matplotlib.pyplot as plt
@@ -42,12 +44,14 @@ import numpy as np
 from harmoni_pm.common.configuration import Configuration
 from numpy import std
 
-POINTINGSIM_DEFAULT_OUTPUT_PREFIX = datetime.now().strftime("pointing_sim_%Y%m%d_%H%M%S")
+POINTINGSIM_DEFAULT_OUTPUT_PREFIX = datetime.now().strftime(
+    "pointing_sim_%Y%m%d_%H%M%S")
 
 class PointingSimulator(PlaneSampler):
     def _extract_config(self):
         self.path            = self.config["config.file"]
         self.N               = self.config["simulation.N"]
+        self.heatmap         = self.config["simulation.heatmap"]
         self.save_statistics = self.config["artifacts.save-statistics"]
         self.save_sim        = self.config["artifacts.save-sim"]
         self.do_plot         = self.config["artifacts.plot"]
@@ -76,6 +80,7 @@ class PointingSimulator(PlaneSampler):
                 model_config.set(tweak[0], tweak[1])
                 
         self.model  = OpticalModel(model_config)
+        self.gcu    = GCUImagePlane(model_config)
         
         # Get transform
         self.pointing_transform = self.model.get_pointing_transform()
@@ -106,10 +111,15 @@ class PointingSimulator(PlaneSampler):
         self.model.generate()
         self.measures = np.zeros([self.cols, self.rows])
         
+    def pointing_err(self, xy):
+        return np.linalg.norm(
+            xy - self.pointing_transform.backward(xy), 
+            axis = 1)
+        
     def _process_region(self, ij, xy):
         Ninv = 1. / self.oversampling ** 2
         
-        err = np.linalg.norm(xy - self.pointing_transform.backward(xy), axis = 1)
+        err = self.pointing_err(xy)
         
         ij[:, 1] = self.rows - ij[:, 1] - 1
          
@@ -119,7 +129,7 @@ class PointingSimulator(PlaneSampler):
         super().precalculate()
         self.reset_measures()
     
-    def plot(self):
+    def plot_heatmap(self):
         axes = FloatArray.make(
             [self.xmin(), self.xmax(), self.ymin(), self.ymax()])
         
@@ -133,36 +143,94 @@ class PointingSimulator(PlaneSampler):
         c = plt.colorbar()
         c.set_label("Pointing error (µm)")
         
-        plt.title("Pointing error map")
+        plt.title("Pointing error heatmap")
+ 
+    
+    def plot_points(self):
+        errors = self.measures[tuple(self.gcu_indices.transpose().tolist())]
         
+        axes = FloatArray.make(
+            [self.xmin(), self.xmax(), self.ymin(), self.ymax()])
+        
+        plt.scatter(
+            1e3 * self.gcu_points[:, 0], 
+            1e3 * self.gcu_points[:, 1], 
+            cmap   = plt.get_cmap("inferno"),
+            c = 1e6 * errors, 
+            s = 15)
+        
+        plt.title('Pointing error at GCU points')
+        plt.axis(1e3 * axes)
+        plt.xlabel('X (mm)')
+        plt.ylabel('Y (mm)')
+        
+        ax = plt.gca()
+        ax.set_facecolor('black')
+
+        plt.axis('equal')
+
+        c = plt.colorbar()
+        c.set_label("Pointing error (µm)")
+        
+    def plot(self):
+        if self.heatmap:
+            self.plot_heatmap()
+        else:
+            self.plot_points()
+                
     def show(self):
         plt.show()
+        
+    def simulate_heatmap(self):
+        self.reset_measures()
+        delays, mean, std, exec_time = self.process()
+        return (delays, mean, std, exec_time)
+    
+    def simulate_gcu(self):
+        self.reset_measures()
+        self.gcu_points = self.gcu.point_list()
+        
+        self.gcu_indices, dt = self.process_points(self.gcu_points)
+    
+        return (1, dt, 0, dt)
+    
+    def simulate(self):
+        if self.heatmap:
+            return self.simulate_heatmap()
+        else:
+            return self.simulate_gcu()
         
     def run(self):
         delays_total = 0
         mean_total   = 0
         std_total    = 0
         time_total   = 0
+        means        = []
         
         for i in range(self.N):
             print("\rSimulation: {0:5}/{1}".format(i, self.N), end = '')
             
-            self.reset_measures()
-            delays, mean, std, exec_time = self.process()
+            delays, mean, std, exec_time = self.simulate()
             
             delays_total += delays
             mean_total   += mean
             std_total    += std
             time_total   += exec_time
             
+            means.append(mean)
+            
             if self.do_plot:
                 self.plot()
                 print(" done. Close window to simulate again.")
                 self.show()
-                
-        mean_total /= self.N
-        std_total  /= self.N
         
+        if std_total > 0:
+            mean_total /= self.N
+            std_total  /= self.N
+        else:
+            mean_total = np.mean(means)
+            std_total  = np.std(means)
+            
         return (delays_total, ufloat(mean_total, std_total), time_total)
     
 def config_from_cli():
@@ -219,6 +287,14 @@ def config_from_cli():
         help = "save statistical heatmaps on the pointing errors")
     
     parser.add_argument(
+        "-H",
+        "--heatmap",
+        dest = "heatmap",
+        default = False,
+        action = 'store_true',
+        help = "compute full error heat maps on the field region")
+    
+    parser.add_argument(
         "-S",
         "--save-sim",
         dest = "save_sim",
@@ -231,6 +307,7 @@ def config_from_cli():
     config["config.file"] = args.config_file
     config["config.tweaks"] = args.cli_tweaks
     config["simulation.N"] = args.N
+    config["simulation.heatmap"] = args.heatmap
     
     config["artifacts.save-statistics"] = args.save_statistics
     config["artifacts.save-sim"] = args.save_sim

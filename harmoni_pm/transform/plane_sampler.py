@@ -165,6 +165,20 @@ class PlaneSampler:
                 i += HARMONI_PLANE_SAMPLER_SLICE_SIZE
             j += HARMONI_PLANE_SAMPLER_SLICE_SIZE
         
+    def process_points(self, xy):
+        ij = np.floor(
+            (xy - [self.x0, self.y0]) / [self.delta_x, self.delta_y]).astype(int)
+        
+        execution_start = time.time()
+        self._process_region(
+            np.tile(ij, (self.oversampling ** 2, 1)), 
+            np.tile(xy, (self.oversampling ** 2, 1)))
+        
+        execution_end = time.time()
+        
+        ij[:, 1] = self.rows - ij[:, 1] - 1
+        return (ij, execution_end - execution_start)
+    
     def process(self):
         self.delays = []
         
