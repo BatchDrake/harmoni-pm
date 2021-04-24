@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020 Gonzalo J. Carracedo <BatchDrake@gmail.com>
+# Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
 #
 # Redistribution and use in source and binary forms, with or without 
