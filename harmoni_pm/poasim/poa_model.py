@@ -33,11 +33,12 @@ from ..common.configuration import Configuration
 from ..tolerance import GQ
 from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
+from harmoni_pm.transform import Transform, ZernikeTransform
 
 HARMONI_POA_ENCODER_BITS    = 11
 
 HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
-HARMONI_POA_ARM_LENGTH      = "0.4 +/- 1e-6 m (gauss)"
+HARMONI_POA_ARM_LENGTH      = "0.2 +/- 1e-6 m (gauss)"
 
 class POAModel:
     def _init_params(self):
@@ -64,7 +65,11 @@ class POAModel:
             
         self._extract_params()
         
+    def set_error_model(self, model):
+        self.corrective_transform = ZernikeTransform(model, self.R)
+        
     def __init__(self, params = None):
+        self.corrective_transform = Transform()
         self._init_params()
         self.set_params(params)
         
@@ -145,6 +150,8 @@ class POAModel:
         
         return np.column_stack((x, y))
 
-    def model_xy(self, xy, mirror = False):
-        return self.model_xy_from_theta_phi(self.xy_to_theta_phi(xy, mirror))
-
+    def model_xy(self, xy, mirror = False): 
+        return self.model_xy_from_theta_phi(
+            self.xy_to_theta_phi(
+                self.corrective_transform.backward(xy), 
+                mirror))

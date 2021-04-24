@@ -146,7 +146,7 @@ class PointingSimulator(PlaneSampler):
         
         plt.title("Pointing error heatmap")
  
-    def plot_pointing_model(self, a):
+    def plot_zernike(self, ax, a, angles = False):
         axes = FloatArray.make(
             [self.xmin(), self.xmax(), self.ymin(), self.ymax()])
         
@@ -171,91 +171,76 @@ class PointingSimulator(PlaneSampler):
 
         CZ = ComplexZernike(np.array(a))
 
-        Ev = CZ(P)
-    
-        plt.subplot(121)
-        bmap[ij[:, 0], ij[:, 1]] = 1e6 * np.abs(Ev)
-        plt.imshow(bmap.transpose(), extent = 1e3 * axes, cmap = plt.cm.get_cmap("inferno"))
+        if angles:
+            quantity = 180 / np.pi * np.angle(CZ(P))
+        else:
+            quantity = 1e6 * np.abs(CZ(P))
+            
+        bmap[ij[:, 0], ij[:, 1]] = quantity
         
-        c = plt.colorbar()
-        c.set_label("Pointing error (µm)")
+        im = ax.imshow(
+            bmap.transpose(), 
+            extent = 1e3 * axes, 
+            cmap = plt.cm.get_cmap("inferno"))
+        ax.axis(1e3 * axes)
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
         
-        plt.title("Magnitude")
-        plt.axis(1e3 * axes)
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        
-        plt.subplot(122)
-        
-        bmap[ij[:, 0], ij[:, 1]] = 180 / np.pi * np.angle(Ev)
-        plt.imshow(bmap.transpose(), extent = 1e3 * axes, cmap = plt.cm.get_cmap("inferno"))
-        
-        c = plt.colorbar()
-        c.set_label("Pointing error angle (deg)")
-        
-        plt.title("Phase")
-        plt.axis(1e3 * axes)
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        
-    def plot_points(self):
-        errors = self.measures[tuple(self.gcu_indices.transpose().tolist())]
-        
+        c = plt.colorbar(im)
+        if angles:
+            ax.set_title("Angle")
+            c.set_label("Pointing error angle (deg)")
+        else:
+            ax.set_title("Magnitude")
+            c.set_label("Pointing error (µm)")
+
+    def plot_gcu_points(self, ax, quantity, unitdesc):        
         axes = FloatArray.make(
             [self.xmin(), self.xmax(), self.ymin(), self.ymax()])
         
-        plt.suptitle('Pointing error at GCU points')
-        plt.subplot(121)
-        plt.scatter(
+        sc = ax.scatter(
             1e3 * self.gcu_points[:, 0], 
             1e3 * self.gcu_points[:, 1], 
             cmap   = plt.get_cmap("inferno"),
-            c = 1e6 * errors, 
+            c = quantity, 
             s = 15)
         
-        plt.title('Magnitude')
-        plt.axis(1e3 * axes)
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        
-        ax = plt.gca()
+        ax.axis(1e3 * axes)
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
         ax.set_facecolor('black')
 
-        plt.axis('equal')
+        ax.axes.set_aspect('equal', 'box', anchor='NE')
 
-        c = plt.colorbar()
-        c.set_label("Pointing error (µm)")
-        
-        N = len(self.gcu_points[:, 0])
-        plt.subplot(122)
-        plt.scatter(
-            1e3 * self.gcu_points[:, 0], 
-            1e3 * self.gcu_points[:, 1], 
-            cmap   = plt.get_cmap("inferno"),
-            c = 180 / np.pi * np.arctan2(self.err_xy[0:N, 1], self.err_xy[0:N, 0]), 
-            s = 15)
-        
-        plt.title('Phase')
-        plt.axis(1e3 * axes)
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        
-        ax = plt.gca()
-        ax.set_facecolor('black')
-
-        plt.axis('equal')
-
-        c = plt.colorbar()
-        c.set_label("Pointing error angle (deg)")
-
-        
+        c = plt.colorbar(sc)
+        c.set_label(unitdesc)
+    
+    def plot_points(self):
+        N = self.gcu_points.shape[0]
         plt.figure()
         plt.suptitle(
-            "Pointing model ({0} polynomials and {1} sampling points)".format(
-            len(self.z_a),
-            self.solver.delta.shape[0]))
+            "Pointing model ({0} Zernike coefficients, {1} points)".format(
+                len(self.z_a),
+                N))
         
-        self.plot_pointing_model(self.z_a)
+        errors = self.measures[tuple(self.gcu_indices.transpose().tolist())]
+        errang = 180 / np.pi * np.arctan2(self.err_xy[0:N, 1], self.err_xy[0:N, 0])
+        
+        ax = plt.subplot(221)
+        self.plot_gcu_points(ax, 1e6 * errors, "Distance (µm)")
+        ax.set_title("$||\\Delta\\vec{x}||$ (measured)")
+        
+        ax = plt.subplot(222)
+        self.plot_gcu_points(ax, errang, "Angle (deg)")
+        ax.set_title("$\\angle\\Delta\\vec{x}$ (measured)")
+        
+        ax = plt.subplot(223)        
+        self.plot_zernike(ax, self.z_a, False)
+        ax.set_title("$||\\Delta\\vec{x}||$ (model)")
+        
+        ax = plt.subplot(224)        
+        self.plot_zernike(ax, self.z_a, True)
+        ax.set_title("$\\angle\\Delta\\vec{x}$ (model)")
         
     def plot(self):
         if self.heatmap:
@@ -311,9 +296,26 @@ class PointingSimulator(PlaneSampler):
             
             if self.do_plot:
                 self.plot()
-                print(" done. Close window to simulate again.")
+            
+            # Apply pointing model and try again
+            self.model.set_pointing_model(self.z_a)
+            
+            delays, mean, std, exec_time = self.simulate()
+            
+            delays_total += delays
+            mean_total   += mean
+            std_total    += std
+            time_total   += exec_time
+            
+            means.append(mean)
+            
+            if self.do_plot:
+                self.plot()
                 self.show()
-        
+                print(" done. Close window to simulate again.")
+            else:
+                print("done.")
+                
         if std_total > 0:
             mean_total /= self.N
             std_total  /= self.N

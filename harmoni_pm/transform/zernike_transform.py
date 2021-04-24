@@ -34,18 +34,19 @@ from harmoni_pm.zernike import ComplexZernike
 import numpy as np
 
 class ZernikeTransform(Transform):
-    def __init__(self, err_a):
+    def __init__(self, err_a, R = 1):
+        self.R = R
         self.err_CZ = ComplexZernike(err_a)
         
     def get_err(self, xy):
-        ce = self.err_CZ(xy)
-        return FloatArray.make([np.real(ce), np.imag(ce)])
+        ce = self.err_CZ(xy / self.R)
+        return FloatArray.make([np.real(ce), np.imag(ce)]).transpose()
     
     def _forward_matrix(self, xy):    
-        return self.xy + self.get_err(xy)
+        return xy + self.get_err(xy)
     
     def _backward_matrix(self, xy):
-        return self.xy - self.get_err(xy)
+        return xy - self.get_err(xy)
     
     def _forward(self, xy):
         return self._forward_matrix(FloatArray.make([xy]))

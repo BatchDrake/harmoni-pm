@@ -36,3 +36,4 @@ from .brown_conrady import BrownConradyTransform
 from .sampled_transform import SampledTransform
 from .inverse_transform import InverseTransform
 from .plane_sampler import PlaneSampler
+from .zernike_transform import ZernikeTransform

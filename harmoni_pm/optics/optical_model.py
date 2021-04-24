@@ -85,6 +85,9 @@ class OpticalModel:
         self._push_common_transforms(self.pointing_transform)
         self.pointing_transform.push_back(self.poa_center_transform)
         
+    def set_pointing_model(self, model):
+        self.poa_model.set_error_model(model)
+        
     def __init__(self, params = None):
         self._init_params()
         
@@ -98,7 +101,7 @@ class OpticalModel:
         self.ngss_alignment_transform = NGSSAlignmentTransform(params)
         self.poa_transform            = POATransform(self.poa_model)
         self.poa_center_transform     = POACenterTransform(self.poa_model)
-
+        
         # Define default value for CAL select
         self.cal_select               = True
         
