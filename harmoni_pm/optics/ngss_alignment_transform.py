@@ -39,22 +39,21 @@ HARMONI_NGSS_ALIGNMENT_Y = "0 m"
 class NGSSAlignmentTransform(Transform):
     def _init_configuration(self):
         self.params = Configuration()
-        
         self.params["ngss_alignment.x0"] = HARMONI_NGSS_ALIGNMENT_X
         self.params["ngss_alignment.y0"] = HARMONI_NGSS_ALIGNMENT_Y
         
     def _extract_params(self):
         self.x0 = GQ(self.params["ngss_alignment.x0"])
         self.y0 = GQ(self.params["ngss_alignment.y0"])
+        self.generate("manufacture")
         
-        self.generate()
-        
-    def generate(self):
-        x0 = self.x0.generate(1, "m")
-        y0 = self.y0.generate(1, "m")
-
-        self.offset = FloatArray.make((x0, y0)).transpose()
-        
+    def generate(self, event = "manufacture"):
+        if event == "manufacture":
+            x0 = self.x0.generate(1, "m")
+            y0 = self.y0.generate(1, "m")
+            self.offset = FloatArray.make((x0, y0)).transpose()
+            self.generate("session")
+            
     def set_params(self, params = None):
         if params is not None:
             self.params.copy_from(params)

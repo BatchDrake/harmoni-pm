@@ -46,5 +46,5 @@ class POACenterTransform(Transform):
         # Compute displacement from p, invert sign, add to p
         return (p - self._forward_matrix(p)) + p 
     
-    def generate(self):
-        pass
+    def generate(self, event = "manufacture"):
+        self.model.generate(event)

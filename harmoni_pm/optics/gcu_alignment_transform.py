@@ -38,15 +38,13 @@ HARMONI_GCU_ALIGNMENT_Y = "0 m"
 class GCUAlignmentTransform(Transform):
     def _init_configuration(self):
         self.params = Configuration()
-        
         self.params["gcu_alignment.x0"] = HARMONI_GCU_ALIGNMENT_X
         self.params["gcu_alignment.y0"] = HARMONI_GCU_ALIGNMENT_Y
         
     def _extract_params(self):
         self.x0 = GQ(self.params["gcu_alignment.x0"])
         self.y0 = GQ(self.params["gcu_alignment.y0"])
-        
-        self.generate()
+        self.generate("manufacture")
         
     def set_params(self, params = None):
         if params is not None:
@@ -54,11 +52,13 @@ class GCUAlignmentTransform(Transform):
             
         self._extract_params()
         
-    def generate(self):
-        x0 = self.x0.generate(1, "m")[0]
-        y0 = self.y0.generate(1, "m")[0]
-        self.offset = [x0, y0]
-        
+    def generate(self, event = "manufacture"):
+        if event == "manufacture":
+            x0 = self.x0.generate(1, "m")[0]
+            y0 = self.y0.generate(1, "m")[0]
+            self.offset = [x0, y0]
+            self.generate("session")
+            
     def __init__(self, params = None):
         self._init_configuration()
         self.set_params(params)

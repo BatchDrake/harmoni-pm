@@ -37,19 +37,21 @@ from .fprs_transform import FPRSTransform
 from .irw_transform import IRWTransform
 from .ngss_alignment_transform import NGSSAlignmentTransform
 
-from numpy import exp
 from harmoni_pm.poasim.poa_model import POAModel
 from harmoni_pm.poasim.poa_center_transform import POACenterTransform
 
 class OpticalModel:
     def _extract_params(self):
+        # Nothing to extract
         pass
     
     def _init_params(self):
         self.params = Configuration()
-        
         self._extract_params()
         
+    def R(self):
+        return self.poa_model.R
+    
     def set_params(self, params = None):
         # Propagate new params to all components and transforms
         
@@ -134,12 +136,10 @@ class OpticalModel:
     def move_to(self, theta, phi):
         self.poa_transform.set_axis_angles(theta, phi)
     
-    def generate(self):
+    def generate(self, event = "manufacture"):
         # Be careful!! Many transforms in the pointing transform and the
         # the optics transform are shared! 
-        self.poa_model.generate()
-        
-        self.transform.generate()
-        self.pointing_transform.generate()
+        self.transform.generate(event)
+        self.pointing_transform.generate(event)
         
         

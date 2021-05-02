@@ -36,9 +36,9 @@ from harmoni_pm.common.array import FloatArray
 from harmoni_pm.transform import Transform, ZernikeTransform
 
 HARMONI_POA_ENCODER_BITS    = 11
-
 HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
-HARMONI_POA_ARM_LENGTH      = "0.2 +/- 1e-6 m (gauss)"
+HARMONI_POA_RADIUS          = "0.2 +/- 1e-6 m (uniform)"
+HARMONI_POA_ARM_INSTABILITY = "0.0 +/- 1e-6 m (gauss)"
 
 class POAModel:
     def _init_params(self):
@@ -46,18 +46,26 @@ class POAModel:
         
         self.params["poa.position_offset"] = HARMONI_POA_POSITION_OFFSET
         self.params["poa.encoder.bits"]    = HARMONI_POA_ENCODER_BITS
-        self.params["poa.radius"]          = HARMONI_POA_ARM_LENGTH
-                    
-    def generate(self):
-        self.m_R        = self.arm_length.generate(1, "m")
-        
+        self.params["poa.radius"]          = HARMONI_POA_RADIUS
+        self.params["poa.arm_instability"] = HARMONI_POA_ARM_INSTABILITY
+    
+    def generate(self, event = "manufacture"):
+        if event == "manufacture":
+            # Nominal radius. This is the arm length requested to the 
+            # manufacturer and the one used for coordinate transform.
+            self.R   = self.radius.value("m")
+            
+            # Manufacture-time radius. This is the true arm length
+            # delivered by the manufacturer.
+            self.m_R = self.radius.generate(1, "m")
+    
     def _extract_params(self):
-        self.pos_off    = GQ(self.params["poa.position_offset"])
-        self.arm_length = GQ(self.params["poa.radius"])
-        self.R          = self.arm_length["meters"]
-        self.step_count = 2 ** self.params["poa.encoder.bits"]
+        self.pos_off         = GQ(self.params["poa.position_offset"])
+        self.radius          = GQ(self.params["poa.radius"])
+        self.arm_instability = GQ(self.params["poa.arm_instability"])
+        self.step_count      = 2 ** self.params["poa.encoder.bits"]
         
-        self.generate()
+        self.generate("manufacture")
         
     def set_params(self, params = None):
         if params is not None:
@@ -66,7 +74,10 @@ class POAModel:
         self._extract_params()
         
     def set_error_model(self, model):
-        self.corrective_transform = ZernikeTransform(model, self.R)
+        if model is None:
+            self.corrective_transform = Transform()
+        else:
+            self.corrective_transform = ZernikeTransform(model, self.R)
         
     def __init__(self, params = None):
         self.corrective_transform = Transform()
@@ -132,21 +143,24 @@ class POAModel:
         theta_phi -= np.floor(theta_phi)
         
         digital_theta = (
-            np.floor(theta_phi[:, 0] * self.step_count) + self.pos_off.generate(n)) / self.step_count
+            np.floor(theta_phi[:, 0] * self.step_count) 
+            + self.pos_off.generate(n)) / self.step_count
              
         digital_phi   = (
-            np.floor(theta_phi[:, 1]  * self.step_count) + self.pos_off.generate(n)) / self.step_count
+            np.floor(theta_phi[:, 1]  * self.step_count) 
+            + self.pos_off.generate(n)) / self.step_count
         
-        return FloatArray.make(2 * np.pi * np.column_stack((digital_theta, digital_phi)))
+        return FloatArray.make(
+            2 * np.pi * np.column_stack((digital_theta, digital_phi)))
     
     def model_xy_from_theta_phi(self, theta_phi):
         q_theta_phi = self.model_theta_phi(theta_phi)
         theta       = q_theta_phi[:, 0]
         diff        = q_theta_phi[:, 1] - q_theta_phi[:, 0]
         n           = len(theta)
-        R           = self.arm_length.generate(n, "meters")
-        x           = self.R * np.cos(theta) - R * np.cos(diff)
-        y           = self.R * np.sin(theta) + R * np.sin(diff)
+        R           = self.m_R + self.arm_instability.generate(n, "meters")
+        x           = self.m_R * np.cos(theta) - R * np.cos(diff)
+        y           = self.m_R * np.sin(theta) + R * np.sin(diff)
         
         return np.column_stack((x, y))
 

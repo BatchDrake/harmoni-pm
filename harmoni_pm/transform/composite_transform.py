@@ -57,9 +57,9 @@ class CompositeTransform(Transform):
             
         return p
     
-    def generate(self):
+    def generate(self, event = "manufacture"):
         for t in self.transforms:
-            t.generate()
+            t.generate(event)
             
     def reset(self):
         for t in self.transforms:

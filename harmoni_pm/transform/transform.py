@@ -68,7 +68,7 @@ class Transform:
         else:
             return self._backward_matrix(xy)
     
-    def generate(self):
+    def generate(self, event = "manufacture"):
         pass
     
     def reset(self):

@@ -40,23 +40,25 @@ HARMONI_IRW_ANGLE_BIAS = "0 radians"
 class IRWTransform(Transform):
     def _init_configuration(self):
         self.params = Configuration()
-        
         self.params["irw.angle_bias"] = HARMONI_IRW_ANGLE_BIAS
         
     def _extract_params(self):
         self.delta_theta = GQ(self.params["irw.angle_bias"])
+        self.generate("manufacture")
         
-        self.generate()
-        
-    def generate(self):
-        theta = self.delta_theta.generate(1, "radians")[0]
-        
-        self.prot = FloatArray.make(
-            [[np.cos(theta), np.sin(theta)],
-             [-np.sin(theta), np.cos(theta)]])
-        self.nrot = FloatArray.make(
-            [[np.cos(theta), -np.sin(theta)],
-             [np.sin(theta), np.cos(theta)]])
+    def generate(self, event = "manufacture"):
+        if event == "manufacture":
+            # Nothing to do on manufacture time
+            self.generate("session")
+        elif event == "session":
+            theta = self.delta_theta.generate(1, "radians")[0]
+            
+            self.prot = FloatArray.make(
+                [[np.cos(theta), np.sin(theta)],
+                 [-np.sin(theta), np.cos(theta)]])
+            self.nrot = FloatArray.make(
+                [[np.cos(theta), -np.sin(theta)],
+                 [np.sin(theta), np.cos(theta)]])
     
     def set_params(self, params = None):
         if params is not None:

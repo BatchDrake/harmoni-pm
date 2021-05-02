@@ -28,48 +28,5 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import Configuration
-from ..transform import Transform
-from .zpl_report_parser import ZplReportParser
-
-class FPRSTransform(Transform):
-    def _init_configuration(self):
-        self.params = Configuration()
-        self.params["fprs.desc_file"] = "FPRS_distortion_map.txt"
-        
-    def _extract_params(self):
-        if self.desc_file != self.params["fprs.desc_file"]: 
-            path   = self.params["fprs.desc_file"]
-            report = ZplReportParser(path)
-            report.parse()
-            self.transform = report.make_transform()
-            self.desc_file = path
-            
-    def set_params(self, params = None):
-        if params is not None:
-            self.params.copy_from(params)
-            
-        self._extract_params()
-        
-    def generate(self, event = "manufacture"):
-        # Nothing to generate
-        pass
-    
-    def __init__(self, params = None):
-        self.desc_file = None
-        self.transform = Transform()
-        
-        self._init_configuration()
-        self.set_params(params)
-
-    def _forward_matrix(self, p):
-        return self.transform._forward_matrix(p)
-    
-    def _forward(self, p):
-        return self.transform._forward(p)
-    
-    def _backward_matrix(self, p):
-        return self.transform._backward_matrix(p)
-    
-    def _backward(self, p):
-        return self.transform._backward(p)
+from .calibration import Calibration
+from .error_sampler import ErrorSampler

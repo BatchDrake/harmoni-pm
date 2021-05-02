@@ -57,7 +57,7 @@ class ComplexZernike:
     def j_to_mn(j):
         n = np.ceil(.5 * (-3 + np.sqrt(9 + 8 * j)))
         m = 2 * j - n * (n + 2)
-        return (m, n)
+        return (int(m), int(n))
     
     def __init__(self, a):
         F = lambda xy: 0.

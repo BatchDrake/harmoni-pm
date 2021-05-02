@@ -136,8 +136,8 @@ class TransformTester:
         self.input = self.result
         self.origin_desc += u" → " + self.result_desc
         
-    def sample(self):
-        self.transform.generate()
+    def sample(self, event = "manufacture"):
+        self.transform.generate(event)
         
     def forward(self):
         self.J      = None

@@ -129,8 +129,6 @@ class PlaneSampler:
         x = self.o_delta_x * (osp.flatten() + .5)
         y = self.o_delta_y * (osp.transpose().flatten() + .5)
     
-        self.betaA = self.model.intensity_to_flux()
-        
         self.xy = FloatArray.make([x, y]).transpose()
         
     def set_oversampling(self, oversampling):

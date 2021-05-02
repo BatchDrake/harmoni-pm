@@ -28,48 +28,53 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from ..common import Configuration
-from ..transform import Transform
-from .zpl_report_parser import ZplReportParser
+from harmoni_pm.transform import PlaneSampler
+from harmoni_pm.common import FloatArray
 
-class FPRSTransform(Transform):
-    def _init_configuration(self):
-        self.params = Configuration()
-        self.params["fprs.desc_file"] = "FPRS_distortion_map.txt"
-        
-    def _extract_params(self):
-        if self.desc_file != self.params["fprs.desc_file"]: 
-            path   = self.params["fprs.desc_file"]
-            report = ZplReportParser(path)
-            report.parse()
-            self.transform = report.make_transform()
-            self.desc_file = path
-            
-    def set_params(self, params = None):
-        if params is not None:
-            self.params.copy_from(params)
-            
-        self._extract_params()
-        
-    def generate(self, event = "manufacture"):
-        # Nothing to generate
-        pass
-    
-    def __init__(self, params = None):
-        self.desc_file = None
-        self.transform = Transform()
-        
-        self._init_configuration()
-        self.set_params(params)
+import numpy as np
 
-    def _forward_matrix(self, p):
-        return self.transform._forward_matrix(p)
+class ErrorSampler(PlaneSampler):
+    def __init__(self, transform):
+        super().__init__()
+        
+        self.transform = transform
+        self.err_xy  = FloatArray.make(np.zeros([0, 2]))
+        self.err_abs = FloatArray.make(np.zeros([0]))
+        
+    def _process_region(self, ij, xy):
+        Ninv = 1. / self.oversampling ** 2
+        
+        self.err_xy = xy - self.transform.backward(xy)
+        self.err_abs = np.linalg.norm(self.err_xy, axis = 1)
+        
+        ij[:, 1] = self.rows - ij[:, 1] - 1
+         
+        np.add.at(self.err_map, tuple(ij.transpose()), Ninv * self.err_abs)
+        
+    def reset_err_map(self):
+        self.err_map = np.zeros([self.cols, self.rows])
+        
+    def precalculate(self):
+        super().precalculate()
+        self.reset_err_map()
+        
+    def process_points(self, points):
+        self.reset_err_map()
+        
+        prev_oversampling = self.oversampling
+        self.oversampling = 1
+        result = super().process_points(points)
+        self.oversampling = prev_oversampling
+        
+        return (self.err_xy, result[0], result[1])
     
-    def _forward(self, p):
-        return self.transform._forward(p)
+    def get_error_vec(self):
+        return self.err_xy
     
-    def _backward_matrix(self, p):
-        return self.transform._backward_matrix(p)
+    def get_error_abs(self):
+        return self.err_abs
     
-    def _backward(self, p):
-        return self.transform._backward(p)
+    def get_error_map(self):
+        return self.err_map
+    
+    
