@@ -60,7 +60,7 @@ class SampledTransform(Transform):
         
         self.rows = e_x.shape[0]
         self.cols = e_x.shape[1]
-        
+
     def _overscan_NE(self, coef):
         # _overscan_SE: add overscan rows and cols in the north-east directions
         tmpc = np.hstack((coef, np.tile(coef[:, [-1]], 2)))

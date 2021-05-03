@@ -89,7 +89,7 @@ class OpticalModel:
         
     def set_pointing_model(self, model):
         self.poa_model.set_error_model(model)
-        
+
     def __init__(self, params = None):
         self._init_params()
         

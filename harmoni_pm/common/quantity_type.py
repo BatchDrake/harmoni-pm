@@ -78,7 +78,8 @@ class QuantityType(object):
     def __call__(self, asstr):
         try:
             quantity = Q(asstr)
-            self._value = quantity.to(self._units)
+            value = quantity.to(self._units).magnitude
+            self.set_value(value)
             return self
         except:
             raise argparse.ArgumentTypeError(

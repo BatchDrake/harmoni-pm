@@ -39,17 +39,20 @@ class ErrorSampler(PlaneSampler):
         
         self.transform = transform
         self.err_xy  = FloatArray.make(np.zeros([0, 2]))
-        self.err_abs = FloatArray.make(np.zeros([0]))
+        self.err_sq = FloatArray.make(np.zeros([0]))
         
     def _process_region(self, ij, xy):
         Ninv = 1. / self.oversampling ** 2
         
-        self.err_xy = xy - self.transform.backward(xy)
-        self.err_abs = np.linalg.norm(self.err_xy, axis = 1)
+        err_xy = FloatArray.make(xy - self.transform.backward(xy))
+        err_sq = np.linalg.norm(err_xy, axis = 1) ** 2
         
         ij[:, 1] = self.rows - ij[:, 1] - 1
          
-        np.add.at(self.err_map, tuple(ij.transpose()), Ninv * self.err_abs)
+        np.add.at(self.err_map, tuple(ij.transpose()), Ninv * err_sq)
+        
+        self.err_xy = err_xy
+        self.err_sq = err_sq
         
     def reset_err_map(self):
         self.err_map = np.zeros([self.cols, self.rows])
@@ -71,8 +74,8 @@ class ErrorSampler(PlaneSampler):
     def get_error_vec(self):
         return self.err_xy
     
-    def get_error_abs(self):
-        return self.err_abs
+    def get_error_sq(self):
+        return self.err_sq
     
     def get_error_map(self):
         return self.err_map

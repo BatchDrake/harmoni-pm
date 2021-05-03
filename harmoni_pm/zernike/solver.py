@@ -29,7 +29,6 @@
 #
 
 from .complex import ComplexZernike
-from ..common import FloatArray
 from ..common.exceptions import InvalidTensorShapeError 
 import numpy as np
 
@@ -43,7 +42,7 @@ class ZernikeSolver:
             raise InvalidTensorShapeError(
                 "Invalid point matrix shape (must be Nx2)")
         
-        if points.shape[0] < J:
+        if False and points.shape[0] < J:
             raise InvalidTensorShapeError(
                 "Too few points to solve {0} Zernike coefficients".format(J))
             

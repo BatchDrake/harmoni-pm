@@ -70,7 +70,7 @@ class GCUImagePlane(ImagePlane):
     def in_mask(self, xy):
         return np.linalg.norm(
             np.round((xy - self.m_p0) / self.p_sep) * self.p_sep,
-            axis = 1) < .5 * self.m_diameter
+            axis = 1) < (.5 * self.m_diameter)
     
     def point_list(self):
         points = int(np.ceil(.5 * self.m_diameter / self.p_sep))

@@ -30,14 +30,26 @@
 
 from harmoni_pm.imagegen import GCUImagePlane
 from harmoni_pm.optics import OpticalModel
-from harmoni_pm.zernike import ComplexZernike, ZernikeSolver
-
+from harmoni_pm.zernike import ZernikeSolver
 from .error_sampler import ErrorSampler
 
 import numpy as np
 
+HARMONI_CALIBRATION_MAX_J = 10                 # 1
+HARMONI_CALIBRATION_BEARING_GAP = 10e-3        # m
+
+HARMONI_CALIBRATION_SAMPLER_ROWS = 400         # 1
+HARMONI_CALIBRATION_SAMPLER_COLS = 400         # 1
+HARMONI_CALIBRATION_STEP_X       = 2.5 * .5e-3 # m
+HARMONI_CALIBRATION_STEP_Y       = 2.5 * .5e-3 # m
+
+
 class Calibration:
-    def __init__(self, config, J = 3):
+    def __init__(
+            self, 
+            config, 
+            J = HARMONI_CALIBRATION_MAX_J, 
+            gap = HARMONI_CALIBRATION_BEARING_GAP):
         self.model = OpticalModel(config)
         self.gcu   = GCUImagePlane(config)
         self.gcu_points = self.gcu.point_list()
@@ -51,12 +63,18 @@ class Calibration:
         self.sampler = ErrorSampler(self.pointing_transform)
         
         self.sampler.set_sampling_properties(
-            400, 
-            400, 
-            2.5 * .5e-3, 
-            2.5 * .5e-3, 
-            radius = self.model.R())
+            HARMONI_CALIBRATION_SAMPLER_COLS, 
+            HARMONI_CALIBRATION_SAMPLER_ROWS, 
+            HARMONI_CALIBRATION_STEP_X, 
+            HARMONI_CALIBRATION_STEP_Y, 
+            radius = self.model.R() - gap)
 
+    def get_axes(self):
+        return [self.sampler.xmin(), 
+                self.sampler.xmax(), 
+                self.sampler.ymin(), 
+                self.sampler.ymax()]
+            
     def manufacture(self):
         self.model.generate("manufacture")
         pass
@@ -65,27 +83,71 @@ class Calibration:
         self.model.generate("session")
         pass
     
+    def get_gcu_points(self, up_to = None):
+        if up_to is not None:
+            indices = np.arange(self.gcu_points.shape[0])
+            np.random.shuffle(indices)
+            return self.gcu_points[indices[0:up_to], :]
+        
+        return self.gcu_points
+    
     def set_pointing_model(self, params):
         self.model.set_pointing_model(params)
         
-    def measure_displacements(self):
-        self.sampler.process_points(self.gcu_points)
-        self.err_abs = self.sampler.get_error_abs()
+    def measure_displacements(self, points = None):
+        if points is None:
+            points = self.get_gcu_points()
+            
+        self.sampler.process_points(points)
+        self.err_sq = self.sampler.get_error_sq()
         self.err_vec = self.sampler.get_error_vec()
-         
+
+    def get_error_map(self):
+        return self.sampler.get_error_map()
+    
+    def sample_error_map(self):
+        self.sampler.reset_err_map()
+        self.sampler.process()
+        
+        self.err_sq = self.get_error_map().flatten()
+        
     def solve_pointing_model(self):
         return self.solver.solve_for(self.err_vec)
         
-    def get_mse(self, params):
+    def test_model(self, params, full = False):
         # TODO: Disable instabilities!!
         self.set_pointing_model(params)
-        self.measure_displacements(self.gcu_points)
-        
-        return np.sum(self.err_abs ** 2)
+        if full:
+            self.sample_error_map()
+        else:
+            self.measure_displacements()
+        self.set_pointing_model(None)
 
+    def get_mse(self, params, full = False):
+        self.test_model(params, full)
+        return np.mean(self.err_sq)
+
+    def get_max_se(self, params, full = False):
+        self.test_model(params, full)
+        return np.max(self.err_sq)
+
+    def calibrate(self, points = None):
+        if points is None:
+            points = self.get_gcu_points()
+        
+        # Step 1: start a calibration session
+        self.start_session()
+        
+        # Step 2: measure all displacements
+        self.measure_displacements(points)
+        
+        # Step 3: solve pointing model
+        solver = ZernikeSolver(points / self.model.R(), self.J)
+        return solver.solve_for(self.err_vec)
+    
     def sample_pointing_model(self, count = 100):
         i = 0
-        a = np.zeros([count, self.J], dtype = 'complex64')
+        a = np.zeros([count, self.J], dtype = 'complex128')
         
         while i < count:
             self.manufacture()

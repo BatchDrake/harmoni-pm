@@ -30,10 +30,13 @@
 
 from harmoni_pm.calibration import Calibration
 from harmoni_pm.zernike import ComplexZernike
-
+from harmoni_pm.common import FloatArray
+from harmoni_pm.common import QuantityType
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as pch
+
 import argparse, sys
 import numpy as np
 from harmoni_pm.common.configuration import Configuration
@@ -45,10 +48,12 @@ class PointingSimulator:
     def _extract_config(self):
         self.path            = self.config["config.file"]
         self.N               = self.config["simulation.N"]
-        self.heatmap         = self.config["simulation.heatmap"]
-        self.save_statistics = self.config["artifacts.save-statistics"]
-        self.save_sim        = self.config["artifacts.save-sim"]
+        self.J               = self.config["simulation.J"]
+        self.gap             = self.config["simulation.gap"]
+        self.type            = self.config["simulation.type"]
+        self.point_count     = self.config["simulation.points"]
         self.do_plot         = self.config["artifacts.plot"]
+        self.markers         = self.config["artifacts.markers"]
         
         # Parse config tweaks
         self.tweaks = []
@@ -73,7 +78,7 @@ class PointingSimulator:
             except SyntaxError:
                 model_config.set(tweak[0], tweak[1])
         
-        self.calibration = Calibration(model_config)
+        self.calibration = Calibration(model_config, J = self.J, gap = self.gap)
 
     def print_summary(self):
         print("PointingSim: the pointing error simulator")
@@ -83,19 +88,17 @@ class PointingSimulator:
             print("  Model overrides:")
             for t in self.tweaks:
                 print("    {0} = {1}".format(t[0], t[1]))
-            
-        print("  Number of simulations: {0}".format(self.N))
-        print(
-            "  Save statistics:  {0}".format(
-                "yes" if self.save_statistics else "no"))
-        print(
-            "  Save simulations: {0}".format(
-                "yes" if self.save_sim else "no"))
-        print(
-            "  Plot results:     {0}".format(
-                "yes" if self.do_plot else "no"))
+        
+        print("  Test type:          {0}".format(self.type))    
+        print("  Nr. of simulations: {0}".format(self.N))
+        print("  Nr. of polynomials: {0}".format(self.J))
+        print("  GCU point count:    {0}".format(self.point_count))
+        print("  Bearing gap:        {0} mm".format(self.gap * 1e3))
+        print("  Plot results:       {0}".format("yes" if self.do_plot else "no"))
+        print("  Show markers:       {0}".format("yes" if self.markers else "no"))
         print("  ")
 
+        
     def run_calculate_prior(self):
         coefs = self.calibration.sample_pointing_model(self.N)
         print("Prior for the pointing model (J = {0}): ".format(self.calibration.J))
@@ -125,8 +128,8 @@ class PointingSimulator:
             
             if self.do_plot:
                 fig, ax = plt.subplots(1, 2)
-                ax[0].hist(np.real(coefs[:, j]), 50, density = True)
-                ax[1].hist(np.imag(coefs[:, j]), 50, density = True)
+                ax[0].hist(np.real(coefs[:, j]), 100, density = True)
+                ax[1].hist(np.imag(coefs[:, j]), 100, density = True)
                 
                 fig.suptitle("Histograms for $a^{{{0}}}_{{{1}}}$".format(m, n))
                 ax[0].set_title("$Re(a^{{{0}}}_{{{1}}})$".format(m, n))
@@ -139,9 +142,118 @@ class PointingSimulator:
         if self.do_plot:    
             plt.show()
         
-    def run(self):
-        self.run_calculate_prior()
+    def run_calibration_tests(self):
+        numpoints = self.calibration.get_gcu_points().shape[0]
         
+        mean_error = np.zeros([self.N, numpoints])
+        
+        plist = range(0, numpoints)
+        for i in range(mean_error.shape[0]):
+            for n in plist:
+                if n % 10 == 0:
+                    print(
+                        "Calibrating with {0:3} points (run {1}/{2})\r".format(
+                            n, 
+                            i + 1, 
+                            self.N), 
+                        end = '')
+                points = self.calibration.get_gcu_points(n + 1)
+                params = self.calibration.calibrate(points)
+                mean_error[i, n] = np.sqrt(self.calibration.get_mse(params))
+                
+        mean_mse = np.mean(mean_error, axis = 0)
+        std_mse  = np.std(mean_error, axis = 0)
+        
+        if self.do_plot:
+            x = np.array(plist[0:]) + 1
+            plt.semilogy(
+                x, 
+                mean_mse[0:])
+            plt.fill_between(
+                x, 
+                mean_mse[0:] - std_mse[0:], 
+                mean_mse[0:] + std_mse[0:],
+                alpha = 0.5, 
+                edgecolor = '#ff0000', 
+                facecolor = '#ff8080',
+                antialiased = True)
+            
+            plt.grid(True)
+            plt.xlabel("Calibration points")
+            plt.ylabel("$||E||_2$")
+            plt.title("Error in the GCU points")
+            plt.show()
+        
+    def plot_heatmap(self):
+        axes = FloatArray.make(self.calibration.get_axes())
+        
+        plt.imshow(
+            1e6 * np.sqrt(self.calibration.get_error_map().transpose()), 
+            cmap   = plt.get_cmap("inferno"),
+            extent = 1e3 * axes)
+        c = plt.colorbar()
+        c.set_label("Pointing error (µm)")
+        
+        bearing = pch.Arc(
+            (0, 0), 
+            2e3 * self.calibration.model.R(), 
+            2e3 * self.calibration.model.R(),
+            edgecolor = 'white',
+            linestyle = '--',
+            linewidth = 2)
+        plt.gca().add_patch(bearing)
+        
+        plt.xlabel('X (mm)')
+        plt.ylabel('Y (mm)')
+        plt.title("Pointing error heatmap")
+        
+    def run_show_error_map(self):
+        self.calibration.test_model(None, True)
+        self.plot_heatmap()
+        plt.title("Error heatmap (without model)")
+        plt.show()
+        
+    def run_single_calibration_test(self):
+        points = self.calibration.get_gcu_points(int(self.point_count))
+        print("Info: using {0} calibration points".format(points.shape[0]))
+        params = self.calibration.calibrate(points)
+        print("Info: Calibration complete. Sampling... ", end = "")
+        self.calibration.test_model(params, True)
+        
+        mse = np.mean(self.calibration.err_sq)
+        max_se = np.max(self.calibration.err_sq)
+        min_se = np.min(self.calibration.err_sq)
+        
+        print("done")
+        
+        print("Min  E: {0:4.3g} µm".format(1e6 * np.sqrt(min_se)))
+        print("Max  E: {0:4.3g} µm".format(1e6 * np.sqrt(max_se)))
+        print("Mean E: {0:4.3g} µm".format(1e6 * np.sqrt(mse)))
+        
+        if self.do_plot:
+            self.plot_heatmap()
+            plt.title("Error after model (J = {0})".format(self.J))
+            
+            if self.markers:
+                plt.scatter(
+                    1e3 * points[:, 0], 
+                    1e3 * points[:, 1], 
+                    20, 
+                    marker = '+', 
+                    c = '#00ff00',
+                    linewidth = 1)
+            plt.show()
+        
+    def run(self):
+        if self.type == "prior":
+            self.run_calculate_prior()
+        elif self.type == "calplot":
+            self.run_calibration_tests()
+        elif self.type == "calmap":
+            self.run_single_calibration_test()
+        elif self.type == "errormap":
+            self.run_show_error_map()
+            
 def config_from_cli():
     config = Configuration()
     
@@ -165,6 +277,30 @@ def config_from_cli():
         help = "override an entry in the configuration file")
     
     parser.add_argument(
+        "-J",
+        "--polynomials",
+        dest = "J",
+        default = 3,
+        type = int,
+        help = "set the number of Zernike polynomials in the pointing model")
+    
+    
+    parser.add_argument(
+        "-C",
+        "--calibration-points",
+        dest = "calibration_points",
+        default = 553,
+        type = int,
+        help = "set the number of calibration points")
+    
+    parser.add_argument(
+        "-t",
+        "--test-type",
+        dest = "test_type",
+        default = "prior",
+        help = "Sets the test type (pass list to get a list of test)")
+    
+    parser.add_argument(
         "-p",
         "--pattern",
         dest = "pattern",
@@ -186,41 +322,42 @@ def config_from_cli():
         default = False,
         action = 'store_true',
         help = "plot simulations using Matplotlib")
-    
+
     parser.add_argument(
         "-m",
-        "--statistics",
-        dest = "save_statistics",
+        "--markers",
+        dest = "markers",
         default = False,
         action = 'store_true',
-        help = "save statistical heatmaps on the pointing errors")
-    
+        help = "show GCU points used for calibration")
+
     parser.add_argument(
-        "-H",
-        "--heatmap",
-        dest = "heatmap",
-        default = False,
-        action = 'store_true',
-        help = "compute full error heat maps on the field region")
-    
-    parser.add_argument(
-        "-S",
-        "--save-sim",
-        dest = "save_sim",
-        default = False,
-        action = 'store_true',
-        help = "save all intermediate simulations (handle with care!)")
-    
+        "-g",
+        "--gap",
+        dest = "gap",
+        type = QuantityType("mm"),
+        default = QuantityType("mm", 5.0),
+        help = "set the bearing gap width")
+
     args = parser.parse_args()
     
-    config["config.file"] = args.config_file
-    config["config.tweaks"] = args.cli_tweaks
-    config["simulation.N"] = args.N
-    config["simulation.heatmap"] = args.heatmap
+    if args.test_type == "list":
+        print("errormap: Shows the uncorrected error map")
+        print("prior:    Samples a prior for the pointing model coefficients")
+        print("calplot:  Computes the error curve for different calibration point counts")
+        print("calmap:   Computes an error heatmap for a given calibration strategy")
+        sys.exit(0)
+        
+    config["config.file"]       = args.config_file
+    config["config.tweaks"]     = args.cli_tweaks
+    config["simulation.N"]      = args.N
+    config["simulation.J"]      = args.J
+    config["simulation.gap"]    = args.gap["meters"]
+    config["simulation.type"]   = args.test_type
+    config["simulation.points"] = args.calibration_points
     
-    config["artifacts.save-statistics"] = args.save_statistics
-    config["artifacts.save-sim"] = args.save_sim
-    config["artifacts.plot"] = args.plot
+    config["artifacts.plot"]    = args.plot
+    config["artifacts.markers"] = args.markers
     
     return config
 

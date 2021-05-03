@@ -36,6 +36,7 @@ from ..transform import SampledTransform
 import chardet
 import numpy as np
 
+ZPL_REPORT_PARSER_UNITS = 1e-3 # m per mm
 ZPL_REPORT_PARSER_CHARDET_READAHEAD_SIZE = 256
 ZPL_REPORT_PARSER_DATA_HEADER = \
   "  Grid X      Grid Y      Ray X       Ray Y       Err.        ROTATION\n"
@@ -151,7 +152,7 @@ class ZplReportParser():
             e_x[j, i] = t[n, 2] - t[n, 0]
             e_y[j, i] = t[n, 3] - t[n, 1]
         
-        return (e_x, e_y)
+        return (e_x , e_y)
         
     def parse(self):
         t = self._deserialize_table(self.fp)
@@ -184,10 +185,10 @@ class ZplReportParser():
         
     def make_transform(self):
         return SampledTransform(
-            self.x0, 
-            self.y0, 
-            self.delta_x, 
-            self.delta_y, 
-            self.e_x, 
-            self.e_y)
+            self.x0 * ZPL_REPORT_PARSER_UNITS, 
+            self.y0 * ZPL_REPORT_PARSER_UNITS, 
+            self.delta_x * ZPL_REPORT_PARSER_UNITS, 
+            self.delta_y * ZPL_REPORT_PARSER_UNITS, 
+            self.e_x * ZPL_REPORT_PARSER_UNITS, 
+            self.e_y * ZPL_REPORT_PARSER_UNITS)
     

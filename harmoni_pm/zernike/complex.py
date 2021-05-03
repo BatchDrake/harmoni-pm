@@ -49,7 +49,7 @@ class ComplexZernike:
     @staticmethod                                              
     def Z(m, n):
         R = ComplexZernike.R(abs(m), n)
-        
+
         return lambda xy: \
             R(xy) * np.exp(1.j * m * np.arctan2(xy[:, 1], xy[:, 0]))
             
