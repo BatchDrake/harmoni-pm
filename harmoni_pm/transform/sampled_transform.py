@@ -82,8 +82,8 @@ class SampledTransform(Transform):
         
         e = FloatArray.zeros(a.shape)
         
-        valid = (0 <= indices[:, 0]) & (indices[:, 0] <= self.cols) & \
-                (0 <= indices[:, 1]) & (indices[:, 1] <= self.rows)
+        valid = (0 <= indices[:, 0]) & (indices[:, 0] < self.cols) & \
+                (0 <= indices[:, 1]) & (indices[:, 1] < self.rows)
                 
         alpha = a[valid, 0]
         beta  = a[valid, 1]

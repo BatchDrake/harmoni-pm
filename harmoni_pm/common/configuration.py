@@ -28,13 +28,46 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from configparser import ConfigParser
+from configparser import RawConfigParser
+
 import ast
 
 IMPLIED_SECTION = "main"
 
+class EntryReference:
+    def __init__(self, key):
+        self.key = key
+        
+    def __str__(self):
+        return self.key
+    
+    def __repr__(self):
+        return str(self)
+    
+    def resolve(self, config, recursion_limit = 10):
+        i = 0
+        ref = self
+        while i < recursion_limit:
+            value = config.get(ref.key)
+            if type(value) is EntryReference:
+                ref = value
+                i += 1
+            elif value is None:
+                raise LookupError("No such configuration entry `" + ref.key + "'")
+            else:
+                return value
+        raise LookupError("Entry reference recursion limit reached")
+    
+def _parse_entry(asstr):
+    if asstr[0].isalpha():
+        return EntryReference(asstr)
+    else:
+        return ast.literal_eval(asstr)
+    
 class Entry:
-    def __init__(self, datatype, name, default, value = None):
+    def __init__(self, parent, datatype, name, default, value = None):
+        self.parent = parent
+        
         if type(datatype) is not type:
             raise ValueError("datatype must be type (not {0})".format(type(datatype).__name__))
         
@@ -68,10 +101,18 @@ class Entry:
         return self.value
     
     def set(self, value):
-        if type(value) is not self.type:
+        value_type = type(value)
+        if value_type is EntryReference:
+            value_type = type(value.resolve(self.parent.parent))
+        
+        expected_type = self.type
+        if expected_type is EntryReference:
+            expected_type = type(self.value.resolve(self.parent.parent))
+            
+        if expected_type is not type(None) and value_type is not expected_type:
             raise ValueError(
                 "Invalid value (must be {0}, not {1})".format(
-                    self.type.__name__,
+                    expected_type.__name__,
                     type(value).__name__))
         self.value = value
         
@@ -81,17 +122,18 @@ class Entry:
     def parse(self, asstr):
         # Some quantities may be uncertain with a distribution
         
-        self.set(ast.literal_eval(asstr))
+        self.set(_parse_entry(asstr))
         
 class Section:
-    def __init__(self, name):
+    def __init__(self, parent, name):
+        self.parent = parent
         self.name = name
         self.entries = {}
         
     def set(self, name, value):
         if not self.have(name):
             # New entry: deduce type and default directly from value
-            self.entries[name] = Entry(type(value), name, value)
+            self.entries[name] = Entry(self, type(value), name, value)
         else:
             # Existing entry. Attempt to set value
             self.entries[name].set(value)
@@ -107,7 +149,7 @@ class Section:
     
     def parse(self, name, asstr):
         if not self.have(name):
-            self.set(name, ast.literal_eval(asstr))
+            self.set(name, _parse_entry(asstr))
         else:
             self.entries[name].parse(asstr)
             
@@ -123,7 +165,7 @@ class Section:
     def as_dict(self):
         dic = {}
         
-        for i in self.entries():
+        for i in self.get_entries():
             dic[i] = self.as_str(i)
             
         return dic
@@ -151,7 +193,7 @@ class Configuration:
         return name in self.sections
     
     def parse_key(self, name):
-        qualified = name.rsplit('.', 1)
+        qualified = name.split('.', 1)
         if len(qualified) == 1:
             section = IMPLIED_SECTION
             key     = qualified[0]
@@ -163,7 +205,7 @@ class Configuration:
     
     def upsert_section(self, section):
         if not self.have_section(section):
-            self.sections[section] = Section(section)
+            self.sections[section] = Section(self, section)
             
         return self.sections[section]
     
@@ -181,7 +223,12 @@ class Configuration:
         s.set(key, value)
     
     def __getitem__(self, key):
-        return self.get(key)
+        value = self.get(key)
+    
+        if type(value) is EntryReference:
+            value = value.resolve(self)
+        
+        return value
     
     def __setitem__(self, key, value):
         self.set(key, value)
@@ -197,7 +244,8 @@ class Configuration:
             self.parse(i, dic[i])
             
     def write(self, file):
-        cfgfile = ConfigParser()
+        cfgfile = RawConfigParser()
+        cfgfile.optionxform = lambda option: option
         
         # Convert configuration to dictionary, section by section
         for i in self.sections.keys():
@@ -205,10 +253,11 @@ class Configuration:
             
         with open(file, 'w') as conf:
             cfgfile.write(conf)
-            
     
     def load(self, file):
-        cfgfile = ConfigParser()
+        cfgfile = RawConfigParser()
+        cfgfile.optionxform = lambda option: option
+
         ok = len(cfgfile.read(file))
         
         if ok == 0:

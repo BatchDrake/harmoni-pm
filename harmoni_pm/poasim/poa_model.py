@@ -35,20 +35,30 @@ from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
 from harmoni_pm.transform import Transform, ZernikeTransform
 
-HARMONI_POA_ENCODER_BITS    = 11
-HARMONI_POA_POSITION_OFFSET = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
-HARMONI_POA_RADIUS          = "0.2 +/- 1e-6 m (uniform)"
-HARMONI_POA_ARM_INSTABILITY = "0.0 +/- 1e-6 m (gauss)"
+HARMONI_POA_ENCODER_BITS     = 11
+HARMONI_POA_QUANTIZATION_ERR = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
+HARMONI_POA_RADIUS           = "0.2 +/- 1e-6 m (flat)"
+HARMONI_POA_ARM_INSTABILITY  = "0.0 +/- 1e-6 m (gauss)"
+HARMONI_POA_POSITION_ERROR   = "0.0 +/- 0 m (gauss)"
+
+HARMONI_POA_ENCODER_ERROR    = "0.0 +/- 1 arcsec (flat)"
 
 class POAModel:
     def _init_params(self):
         self.params = Configuration()
         
-        self.params["poa.position_offset"] = HARMONI_POA_POSITION_OFFSET
-        self.params["poa.encoder.bits"]    = HARMONI_POA_ENCODER_BITS
-        self.params["poa.radius"]          = HARMONI_POA_RADIUS
-        self.params["poa.arm_instability"] = HARMONI_POA_ARM_INSTABILITY
-    
+        self.params["poa.encoder[theta].bits"]  = HARMONI_POA_ENCODER_BITS
+        self.params["poa.encoder[theta].qerr"]  = HARMONI_POA_QUANTIZATION_ERR 
+        self.params["poa.encoder[theta].error"] = HARMONI_POA_ENCODER_ERROR
+        
+        self.params["poa.encoder[phi].bits"]    = HARMONI_POA_ENCODER_BITS
+        self.params["poa.encoder[phi].qerr"]    = HARMONI_POA_QUANTIZATION_ERR
+        self.params["poa.encoder[phi].error"]   = HARMONI_POA_ENCODER_ERROR
+        
+        self.params["poa.radius"]               = HARMONI_POA_RADIUS
+        self.params["poa.arm_instability"]      = HARMONI_POA_ARM_INSTABILITY
+        self.params["poa.position_error"]       = HARMONI_POA_POSITION_ERROR
+        
     def generate(self, event = "manufacture"):
         if event == "manufacture":
             # Nominal radius. This is the arm length requested to the 
@@ -60,10 +70,21 @@ class POAModel:
             self.m_R = self.radius.generate(1, "m")
     
     def _extract_params(self):
-        self.pos_off         = GQ(self.params["poa.position_offset"])
+        self.pos_error       = GQ(self.params["poa.position_error"])
         self.radius          = GQ(self.params["poa.radius"])
         self.arm_instability = GQ(self.params["poa.arm_instability"])
-        self.step_count      = 2 ** self.params["poa.encoder.bits"]
+        
+        self.step_count      = [
+            2 ** self.params["poa.encoder[theta].bits"],
+            2 ** self.params["poa.encoder[phi].bits"]]
+        
+        self.q_error         = [
+            GQ(self.params["poa.encoder[theta].qerr"]),
+            GQ(self.params["poa.encoder[phi].qerr"])]
+        
+        self.enc_error       = [
+            GQ(self.params["poa.encoder[theta].error"]),
+            GQ(self.params["poa.encoder[phi].error"])]
         
         self.generate("manufacture")
         
@@ -132,26 +153,29 @@ class POAModel:
         return bsr_matrix((data, indices, indptr), dtype = 'float32')
     
     def model_theta_phi(self, theta_phi):
+        twopi = 2 * np.pi
         theta_phi  = FloatArray.make(theta_phi)
         
         if len(theta_phi.shape) == 1:
             theta_phi = np.reshape(theta_phi, (int(len(theta_phi) / 2), 2))
             
         n          = theta_phi.shape[0]
-        theta_phi /= 2 * np.pi
+        theta_phi /= twopi
         
         theta_phi -= np.floor(theta_phi)
         
         digital_theta = (
-            np.floor(theta_phi[:, 0] * self.step_count) 
-            + self.pos_off.generate(n)) / self.step_count
-             
+            np.floor(theta_phi[:, 0] * self.step_count[0]) 
+            + self.q_error[0].generate(n)) / self.step_count[0] \
+            + self.enc_error[0].generate(n, "radians") / twopi
+            
         digital_phi   = (
-            np.floor(theta_phi[:, 1]  * self.step_count) 
-            + self.pos_off.generate(n)) / self.step_count
+            np.floor(theta_phi[:, 1] * self.step_count[1]) 
+            + self.q_error[1].generate(n)) / self.step_count[1] \
+            + self.enc_error[1].generate(n, "radians") / twopi
         
         return FloatArray.make(
-            2 * np.pi * np.column_stack((digital_theta, digital_phi)))
+            twopi * np.column_stack((digital_theta, digital_phi)))
     
     def model_xy_from_theta_phi(self, theta_phi):
         q_theta_phi = self.model_theta_phi(theta_phi)
@@ -161,6 +185,17 @@ class POAModel:
         R           = self.m_R + self.arm_instability.generate(n, "meters")
         x           = self.m_R * np.cos(theta) - R * np.cos(diff)
         y           = self.m_R * np.sin(theta) + R * np.sin(diff)
+        
+        # Model generic positioning error (usually gaussian)
+        p_e_r       = self.pos_error.generate(n, "meters")
+        
+        # Uniform distribution of directions. Important: samples are uniformly
+        # distributed over the half-open interval [0, 2pi). This condition is
+        # necessary to prevent a bias towards the positive x direction. 
+        p_e_alpha   = np.random.uniform(0, 2 * np.pi, n)
+        
+        x += p_e_r * np.cos(p_e_alpha)
+        y += p_e_r * np.sin(p_e_alpha)
         
         return np.column_stack((x, y))
 

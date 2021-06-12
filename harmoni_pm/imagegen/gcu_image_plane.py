@@ -67,22 +67,44 @@ class GCUImagePlane(ImagePlane):
         self.params["gcu.mask.y0"]          = HARMONI_GCU_MASK_Y0
         self.params["gcu.mask.diameter"]    = HARMONI_GCU_MASK_DIAMETER
        
-    def in_mask(self, xy):
-        return np.linalg.norm(
-            np.round((xy - self.m_p0) / self.p_sep) * self.p_sep,
-            axis = 1) < (.5 * self.m_diameter)
     
-    def point_list(self):
-        points = int(np.ceil(.5 * self.m_diameter / self.p_sep))
+    def _in_radius_interval(self, xy, a, b):
+        radii = np.linalg.norm(
+            np.round((xy - self.m_p0) / self.p_sep) * self.p_sep,
+            axis = 1)
+        return (a <= radii) & (radii < b)
+    
+    def in_mask(self, xy): 
+        return self._in_radius_interval(xy, 0, .5 * self.m_diameter)
+    
+    def point_list(self, skip = 0, R_int = None):
+        if skip < 0:
+            raise ValueError("Invalid point skip value")
+        
+        step   = skip + 1
+        sep    = self.p_sep * step
+        points = int(np.ceil(.5 * self.m_diameter / sep))
         coords = []
+        
+        if R_int is None:
+            min_R = 0
+            max_R = .5 * self.m_diameter
+        elif type(R_int) is float or type(R_int) is int:
+            min_R  = 0
+            max_R  = R_int
+        elif type(R_int) is tuple:
+            min_R  = R_int[0]
+            max_R  = R_int[1]
+        else:
+            raise ValueError("Invalid radius interval")
         
         for j in range(-points, points):
             for i in range(-points, points):
-                x = i * self.p_sep + self.m_p0[0]
-                y = j * self.p_sep + self.m_p0[1]
+                x = i * sep + self.m_p0[0]
+                y = j * sep + self.m_p0[1]
                 p = [x, y]
                 
-                if self.in_mask([p])[0]:
+                if self._in_radius_interval([p], min_R, max_R)[0]:
                     coords.append(p)
         
         return FloatArray.make(coords)

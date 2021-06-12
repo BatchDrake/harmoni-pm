@@ -60,7 +60,7 @@ class PointingSimulator:
         for i in self.config["config.tweaks"]:
             tweak = i[0].split("=", 1)
             if len(tweak) == 2:
-                self.tweaks.append((tweak[0], tweak[1]))
+                self.tweaks.append((tweak[0].strip(), tweak[1].strip()))
                 
     def __init__(self, config):
         super().__init__()
@@ -75,8 +75,12 @@ class PointingSimulator:
         for tweak in self.tweaks:
             try:
                 model_config.parse(tweak[0], tweak[1])
+                print(model_config[tweak[0]])
             except SyntaxError:
+                print(tweak[0])
+                print(model_config[tweak[0]])
                 model_config.set(tweak[0], tweak[1])
+                print(model_config[tweak[0]])
         
         self.calibration = Calibration(model_config, J = self.J, gap = self.gap)
 
@@ -185,13 +189,15 @@ class PointingSimulator:
             plt.show()
         
     def plot_heatmap(self):
+        fig, ax = plt.subplots(1, 2)
+        
         axes = FloatArray.make(self.calibration.get_axes())
         
-        plt.imshow(
+        im = ax[0].imshow(
             1e6 * np.sqrt(self.calibration.get_error_map().transpose()), 
             cmap   = plt.get_cmap("inferno"),
             extent = 1e3 * axes)
-        c = plt.colorbar()
+        c = plt.colorbar(im, ax = ax[0])
         c.set_label("Pointing error (µm)")
         
         bearing = pch.Arc(
@@ -201,16 +207,24 @@ class PointingSimulator:
             edgecolor = 'white',
             linestyle = '--',
             linewidth = 2)
-        plt.gca().add_patch(bearing)
+        ax[0].add_patch(bearing)
         
-        plt.xlabel('X (mm)')
-        plt.ylabel('Y (mm)')
-        plt.title("Pointing error heatmap")
+        ax[0].set_xlabel('X (mm)')
+        ax[0].set_ylabel('Y (mm)')
+        ax[0].set_title("Pointing error heatmap")
         
+        ax[1].hist(1e6 * np.sqrt(self.calibration.get_error_map().flatten()), 100)
+        ax[1].set_xlabel("Pointing error (µm)")
+        ax[1].grid(True)
+        ax[1].set_title("Error histogram")
+        ax[1].set_yscale("log")
+        
+        return ax
+
     def run_show_error_map(self):
         self.calibration.test_model(None, True)
         self.plot_heatmap()
-        plt.title("Error heatmap (without model)")
+        plt.suptitle("Error heatmap (without model)")
         plt.show()
         
     def run_single_calibration_test(self):
@@ -231,11 +245,11 @@ class PointingSimulator:
         print("Mean E: {0:4.3g} µm".format(1e6 * np.sqrt(mse)))
         
         if self.do_plot:
-            self.plot_heatmap()
-            plt.title("Error after model (J = {0})".format(self.J))
+            ax = self.plot_heatmap()
+            plt.suptitle("Error after model (J = {0})".format(self.J))
             
             if self.markers:
-                plt.scatter(
+                ax[0].scatter(
                     1e3 * points[:, 0], 
                     1e3 * points[:, 1], 
                     20, 
@@ -298,7 +312,7 @@ def config_from_cli():
         "--test-type",
         dest = "test_type",
         default = "prior",
-        help = "Sets the test type (pass list to get a list of test)")
+        help = "Sets the test type (pass `list' to get a list of available tests)")
     
     parser.add_argument(
         "-p",
@@ -336,7 +350,7 @@ def config_from_cli():
         "--gap",
         dest = "gap",
         type = QuantityType("mm"),
-        default = QuantityType("mm", 5.0),
+        default = QuantityType("mm", 10.0),
         help = "set the bearing gap width")
 
     args = parser.parse_args()
