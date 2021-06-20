@@ -28,18 +28,43 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .calibration import Calibration
-from .error_sampler import ErrorSampler
+from harmoni_pm.common.singleton  import Singleton
+from harmoni_pm.common.configuration import Configuration
+from harmoni_pm.common.exceptions import  AlreadyRegisteredError
+from harmoni_pm.calibration.calibration_strategy_factory import CalibrationStrategyFactory
 
-from .calibration_strategy import CalibrationStrategy
-from .calibration_strategy_factory import CalibrationStrategyFactory
-from .calibration_strategy_collection import CalibrationStrategyCollection
-
-from .random_strategy import RandomStrategyFactory
-from .ocs_strategy    import OCSStrategyFactory
-from .spiral_strategy import SpiralStrategyFactory
-
-# Registration calls
-RandomStrategyFactory.register()
-OCSStrategyFactory.register()
-SpiralStrategyFactory.register()
+class CalibrationStrategyCollection(metaclass = Singleton):
+    def __init__(self):
+        self.collection = {}
+        
+    def register(self, name, factory):
+        if type(name) is not str:
+            raise ValueError("Strategy name must be a string")
+        
+        if not issubclass(factory.__class__, CalibrationStrategyFactory):
+            raise ValueError(
+                "Strategy factory must be an object of type CalibrationStrategyFactory")
+            
+        if name in self.collection:
+            raise AlreadyRegisteredError(
+                "Strategy name {0} already registed".format(name))
+            
+        self.collection[name] = factory
+        
+    def make(self, gcu, name, config = Configuration()):
+        if type(name) is not str:
+            raise ValueError("Strategy name must be a string")
+        
+        if name not in self.collection:
+            raise ValueError("Invalid strategy name {0}".format(name))
+        
+        return self.collection[name].make(gcu, config)
+        
+    def get_strategies(self):
+        return self.collection.keys()
+        
+    def generate_points(self, gcu, name, config = Configuration(), scale = 1):
+        strategy = self.make(gcu, name, config)
+        
+        return strategy.generate_points(scale)
+    

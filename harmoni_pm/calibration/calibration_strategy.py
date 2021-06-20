@@ -28,18 +28,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .calibration import Calibration
-from .error_sampler import ErrorSampler
+from __future__ import annotations
+from abc import ABC, abstractmethod
 
-from .calibration_strategy import CalibrationStrategy
-from .calibration_strategy_factory import CalibrationStrategyFactory
-from .calibration_strategy_collection import CalibrationStrategyCollection
+class CalibrationStrategy:        
+    def __init__(self):
+        pass
 
-from .random_strategy import RandomStrategyFactory
-from .ocs_strategy    import OCSStrategyFactory
-from .spiral_strategy import SpiralStrategyFactory
-
-# Registration calls
-RandomStrategyFactory.register()
-OCSStrategyFactory.register()
-SpiralStrategyFactory.register()
+    @abstractmethod
+    def generate_points(self, scale = 1):
+        pass

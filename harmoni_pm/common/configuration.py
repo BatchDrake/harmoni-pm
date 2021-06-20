@@ -184,11 +184,15 @@ class Configuration:
         return self.have_section(section) and self.sections[section].have(key)
     
     def copy_from(self, config):
-        for i in config.sections.keys():
-            section = self.upsert_section(i)
-            for j in config.sections[i].get_entries():
-                section.set(j, config.sections[i].get(j))
-                
+        if type(config) is dict:
+            for key in config:
+                self[key] = config[key]
+        else:
+            for i in config.sections.keys():
+                section = self.upsert_section(i)
+                for j in config.sections[i].get_entries():
+                    section.set(j, config.sections[i].get(j))
+                    
     def have_section(self, name):
         return name in self.sections
     

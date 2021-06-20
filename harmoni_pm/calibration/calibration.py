@@ -32,6 +32,7 @@ from harmoni_pm.imagegen import GCUImagePlane
 from harmoni_pm.optics import OpticalModel
 from harmoni_pm.zernike import ZernikeSolver
 from .error_sampler import ErrorSampler
+from .calibration_strategy_collection import CalibrationStrategyCollection
 
 import numpy as np
 
@@ -42,6 +43,7 @@ HARMONI_CALIBRATION_SAMPLER_ROWS = 400         # 1
 HARMONI_CALIBRATION_SAMPLER_COLS = 400         # 1
 HARMONI_CALIBRATION_STEP_X       = 2.5 * .5e-3 # m
 HARMONI_CALIBRATION_STEP_Y       = 2.5 * .5e-3 # m
+HARMONI_CALIBRATION_STRATEGY     = "random"
 
 
 class Calibration:
@@ -53,6 +55,7 @@ class Calibration:
         self.model = OpticalModel(config)
         self.gcu   = GCUImagePlane(config)
         self.gcu_points = self.gcu.point_list()
+        
         self.J     = J
         
         # TODO: Get field diameter
@@ -68,7 +71,9 @@ class Calibration:
             HARMONI_CALIBRATION_STEP_X, 
             HARMONI_CALIBRATION_STEP_Y, 
             radius = self.model.R() - gap)
-
+        
+        self.rho_scale = (self.model.R() - gap) / self.model.R()
+        
     def get_axes(self):
         return [self.sampler.xmin(), 
                 self.sampler.xmax(), 
@@ -91,6 +96,13 @@ class Calibration:
         
         return self.gcu_points
     
+    def generate_points(self, number, strategy = "random"):
+        return CalibrationStrategyCollection().generate_points(
+            self.gcu,
+            strategy,
+            {"cal.number" : number},
+            scale = self.rho_scale)
+        
     def set_pointing_model(self, params):
         self.model.set_pointing_model(params)
         

@@ -42,3 +42,6 @@ class AbstractClassCallError(ValueError):
 
 class InvalidQuantityRepresentation(ValueError):
     pass
+
+class AlreadyRegisteredError(ValueError):
+    pass

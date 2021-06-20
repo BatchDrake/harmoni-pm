@@ -28,18 +28,46 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from .calibration import Calibration
-from .error_sampler import ErrorSampler
+from harmoni_pm.common import Configuration
 
-from .calibration_strategy import CalibrationStrategy
-from .calibration_strategy_factory import CalibrationStrategyFactory
-from .calibration_strategy_collection import CalibrationStrategyCollection
+from harmoni_pm.calibration import CalibrationStrategy
+from harmoni_pm.calibration import CalibrationStrategyFactory
+from harmoni_pm.calibration import CalibrationStrategyCollection
 
-from .random_strategy import RandomStrategyFactory
-from .ocs_strategy    import OCSStrategyFactory
-from .spiral_strategy import SpiralStrategyFactory
+import numpy as np
 
-# Registration calls
-RandomStrategyFactory.register()
-OCSStrategyFactory.register()
-SpiralStrategyFactory.register()
+HARMONI_RANDOM_STRATEGY_NUMBER = 11
+
+class RandomStrategy(CalibrationStrategy):
+    def _init_params(self):
+        self.params = Configuration()
+        
+        self.params["cal.number"] = HARMONI_RANDOM_STRATEGY_NUMBER
+         
+    def _extract_params(self):
+        self.N = self.params["cal.number"]
+    
+    def __init__(self, gcu, config):
+        self.gcu = gcu
+        self.gcu_points = self.gcu.point_list()
+        self._init_params()
+        self.params.copy_from(config)
+        self._extract_params()
+        
+    def generate_points(self, scale = None):
+        indices = np.arange(self.gcu_points.shape[0])
+        np.random.shuffle(indices)
+        return self.gcu_points[indices[0:self.N], :]
+    
+class RandomStrategyFactory(CalibrationStrategyFactory):
+    @staticmethod
+    def register():
+        try:
+            CalibrationStrategyCollection().register(
+                "random",
+                RandomStrategyFactory())
+        except:
+            pass
+        
+    def make(self, gcu, config):
+        return RandomStrategy(gcu, config)

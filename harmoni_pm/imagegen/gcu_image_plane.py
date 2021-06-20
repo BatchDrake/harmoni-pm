@@ -30,7 +30,6 @@
 import numpy as np
 from harmoni_pm.common import Configuration
 from harmoni_pm.common.prototypes import get_xy
-from harmoni_pm.common.exceptions import InvalidTensorShapeError
 from harmoni_pm.imagegen.image_plane import ImagePlane
 from harmoni_pm.common.array import FloatArray
 
@@ -76,6 +75,21 @@ class GCUImagePlane(ImagePlane):
     
     def in_mask(self, xy): 
         return self._in_radius_interval(xy, 0, .5 * self.m_diameter)
+    
+    def unnormalize(self, xy = None, x = None, y = None):
+        uxy = get_xy(xy, x, y)
+
+        return .5 * uxy * self.m_diameter + self.m_p0
+    
+    def closest(self, xy = None, x = None, y = None):
+        xy = get_xy(xy, x, y)
+        
+        c = self.p_sep * np.round((xy - self.m_p0) / self.p_sep) + self.m_p0
+        
+        if len(c.shape) == 1:
+            c = np.reshape(c, (1, 2))
+            
+        return c[self.in_mask(c), :]
     
     def point_list(self, skip = 0, R_int = None):
         if skip < 0:

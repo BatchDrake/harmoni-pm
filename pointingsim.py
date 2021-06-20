@@ -32,6 +32,7 @@ from harmoni_pm.calibration import Calibration
 from harmoni_pm.zernike import ComplexZernike
 from harmoni_pm.common import FloatArray
 from harmoni_pm.common import QuantityType
+from harmoni_pm.calibration import CalibrationStrategyCollection
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -43,12 +44,14 @@ from harmoni_pm.common.configuration import Configuration
 
 POINTINGSIM_DEFAULT_OUTPUT_PREFIX = datetime.now().strftime(
     "pointing_sim_%Y%m%d_%H%M%S")
+POINTINGSIM_DEFAULT_STRATEGY      = "random"
 
 class PointingSimulator:
     def _extract_config(self):
         self.path            = self.config["config.file"]
         self.N               = self.config["simulation.N"]
         self.J               = self.config["simulation.J"]
+        self.strategy        = self.config["simulation.strategy"]
         self.gap             = self.config["simulation.gap"]
         self.type            = self.config["simulation.type"]
         self.point_count     = self.config["simulation.points"]
@@ -93,13 +96,14 @@ class PointingSimulator:
             for t in self.tweaks:
                 print("    {0} = {1}".format(t[0], t[1]))
         
-        print("  Test type:          {0}".format(self.type))    
-        print("  Nr. of simulations: {0}".format(self.N))
-        print("  Nr. of polynomials: {0}".format(self.J))
-        print("  GCU point count:    {0}".format(self.point_count))
-        print("  Bearing gap:        {0} mm".format(self.gap * 1e3))
-        print("  Plot results:       {0}".format("yes" if self.do_plot else "no"))
-        print("  Show markers:       {0}".format("yes" if self.markers else "no"))
+        print("  Test type:            {0}".format(self.type))    
+        print("  Nr. of simulations:   {0}".format(self.N))
+        print("  Nr. of polynomials:   {0}".format(self.J))
+        print("  Calibration strategy: {0}".format(self.strategy))
+        print("  GCU point count:      {0}".format(self.point_count))
+        print("  Bearing gap:          {0} mm".format(self.gap * 1e3))
+        print("  Plot results:         {0}".format("yes" if self.do_plot else "no"))
+        print("  Show markers:         {0}".format("yes" if self.markers else "no"))
         print("  ")
 
         
@@ -161,7 +165,7 @@ class PointingSimulator:
                             i + 1, 
                             self.N), 
                         end = '')
-                points = self.calibration.get_gcu_points(n + 1)
+                points = self.calibration.generate_points(n + 1, self.strategy)
                 params = self.calibration.calibrate(points)
                 mean_error[i, n] = np.sqrt(self.calibration.get_mse(params))
                 
@@ -185,7 +189,11 @@ class PointingSimulator:
             plt.grid(True)
             plt.xlabel("Calibration points")
             plt.ylabel("$||E||_2$")
-            plt.title("Error in the GCU points")
+            plt.title(
+                "Error in the GCU points (J = {0}, strategy = {1})".format(
+                self.J,
+                self.strategy))
+            
             plt.show()
         
     def plot_heatmap(self):
@@ -228,7 +236,9 @@ class PointingSimulator:
         plt.show()
         
     def run_single_calibration_test(self):
-        points = self.calibration.get_gcu_points(int(self.point_count))
+        points = self.calibration.generate_points(
+            int(self.point_count), 
+            self.strategy)
         print("Info: using {0} calibration points".format(points.shape[0]))
         params = self.calibration.calibrate(points)
         print("Info: Calibration complete. Sampling... ", end = "")
@@ -312,7 +322,15 @@ def config_from_cli():
         "--test-type",
         dest = "test_type",
         default = "prior",
-        help = "Sets the test type (pass `list' to get a list of available tests)")
+        help = "Sets the test type (pass `list' to print a list of available tests)")
+    
+    parser.add_argument(
+        "-S",
+        "--strategy",
+        dest = "strategy",
+        default = POINTINGSIM_DEFAULT_STRATEGY,
+        help = "Sets the calibration strategy (pass `list' to print a list of available strategies)")
+    
     
     parser.add_argument(
         "-p",
@@ -362,16 +380,27 @@ def config_from_cli():
         print("calmap:   Computes an error heatmap for a given calibration strategy")
         sys.exit(0)
         
-    config["config.file"]       = args.config_file
-    config["config.tweaks"]     = args.cli_tweaks
-    config["simulation.N"]      = args.N
-    config["simulation.J"]      = args.J
-    config["simulation.gap"]    = args.gap["meters"]
-    config["simulation.type"]   = args.test_type
-    config["simulation.points"] = args.calibration_points
+    if args.strategy == "list":
+        first = True
+        for s in CalibrationStrategyCollection().get_strategies():
+            if not first:
+                print(", ", end = "")
+            print(s, end = "")
+            first = False
+        print("")
+        sys.exit(0)
+            
+    config["config.file"]         = args.config_file
+    config["config.tweaks"]       = args.cli_tweaks
+    config["simulation.N"]        = args.N
+    config["simulation.J"]        = args.J
+    config["simulation.strategy"] = args.strategy
+    config["simulation.gap"]      = args.gap["meters"]
+    config["simulation.type"]     = args.test_type
+    config["simulation.points"]   = args.calibration_points
     
-    config["artifacts.plot"]    = args.plot
-    config["artifacts.markers"] = args.markers
+    config["artifacts.plot"]      = args.plot
+    config["artifacts.markers"]   = args.markers
     
     return config
 
@@ -393,7 +422,8 @@ try:
     
 except Exception as e:
     print("\033[1mSimulator exception: {0}\033[0m".format(e))
-    print()
+    print("\033[1;30m")
     traceback.print_exc()
+    print("\033[0m")
     sys.exit(1)
 
