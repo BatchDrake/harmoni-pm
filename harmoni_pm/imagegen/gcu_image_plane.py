@@ -66,7 +66,9 @@ class GCUImagePlane(ImagePlane):
         self.params["gcu.mask.y0"]          = HARMONI_GCU_MASK_Y0
         self.params["gcu.mask.diameter"]    = HARMONI_GCU_MASK_DIAMETER
        
-    
+        self.skip  = None
+        self.R_int = None
+        
     def _in_radius_interval(self, xy, a, b):
         radii = np.linalg.norm(
             np.round((xy - self.m_p0) / self.p_sep) * self.p_sep,
@@ -95,33 +97,39 @@ class GCUImagePlane(ImagePlane):
         if skip < 0:
             raise ValueError("Invalid point skip value")
         
-        step   = skip + 1
-        sep    = self.p_sep * step
-        points = int(np.ceil(.5 * self.m_diameter / sep))
-        coords = []
-        
-        if R_int is None:
-            min_R = 0
-            max_R = .5 * self.m_diameter
-        elif type(R_int) is float or type(R_int) is int:
-            min_R  = 0
-            max_R  = R_int
-        elif type(R_int) is tuple:
-            min_R  = R_int[0]
-            max_R  = R_int[1]
-        else:
-            raise ValueError("Invalid radius interval")
-        
-        for j in range(-points, points):
-            for i in range(-points, points):
-                x = i * sep + self.m_p0[0]
-                y = j * sep + self.m_p0[1]
-                p = [x, y]
-                
-                if self._in_radius_interval([p], min_R, max_R)[0]:
-                    coords.append(p)
-        
-        return FloatArray.make(coords)
+        if self.skip != skip or self.R_int != R_int:
+            self.skip  = skip
+            self.R_int = R_int
+            
+            step   = skip + 1
+            sep    = self.p_sep * step
+            points = int(np.ceil(.5 * self.m_diameter / sep))
+            coords = []
+            
+            if R_int is None:
+                min_R = 0
+                max_R = .5 * self.m_diameter
+            elif type(R_int) is float or type(R_int) is int:
+                min_R  = 0
+                max_R  = R_int
+            elif type(R_int) is tuple:
+                min_R  = R_int[0]
+                max_R  = R_int[1]
+            else:
+                raise ValueError("Invalid radius interval")
+            
+            for j in range(-points, points):
+                for i in range(-points, points):
+                    x = i * sep + self.m_p0[0]
+                    y = j * sep + self.m_p0[1]
+                    p = [x, y]
+                    
+                    if self._in_radius_interval([p], min_R, max_R)[0]:
+                        coords.append(p)
+            
+            self.last_points = FloatArray.make(coords)
+            
+        return self.last_points
     
     def __init__(self, params = None):
         super().__init__()

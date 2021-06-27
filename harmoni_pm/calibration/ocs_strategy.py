@@ -50,7 +50,7 @@ class OCSStrategy(CalibrationStrategy):
             raise ValueError("Too few calibration points")
         
         # This comes from inverting n = j * (j + 1) / 2
-        self.max_deg = int(np.floor(-1.5 + .5 * np.sqrt(1 + 8 * self.N)))
+        self.max_deg = int(np.ceil(-1.5 + .5 * np.sqrt(1 + 8 * self.N)))
         
     def __init__(self, gcu, config):
         self.gcu = gcu
@@ -73,7 +73,7 @@ class OCSStrategy(CalibrationStrategy):
             for s in range(1, n_j + 1):
                 theta = 2 * np.pi * (s - 1) / n_j
                 P.append([r_j * np.cos(theta), r_j * np.sin(theta)])
-                
+            
         calpoints = FloatArray.make(P)
         
         return self.gcu.closest(self.gcu.unnormalize(calpoints[0:self.N, :]))

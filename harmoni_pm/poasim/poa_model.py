@@ -34,13 +34,14 @@ from ..tolerance import GQ
 from scipy.sparse import bsr_matrix
 from harmoni_pm.common.array import FloatArray
 from harmoni_pm.transform import Transform, ZernikeTransform
+from harmoni_pm.common.exceptions import InvalidTensorShapeError
 
 HARMONI_POA_ENCODER_BITS     = 11
 HARMONI_POA_QUANTIZATION_ERR = "0.5 +/- 0.5 dimensionless (flat)" # units w.r.t level
 HARMONI_POA_RADIUS           = "0.2 +/- 1e-6 m (flat)"
 HARMONI_POA_ARM_INSTABILITY  = "0.0 +/- 1e-6 m (gauss)"
 HARMONI_POA_POSITION_ERROR   = "0.0 +/- 0 m (gauss)"
-
+HARMONI_POA_MOTOR_SPEED      = "1.0 deg/s"              # Nominal
 HARMONI_POA_ENCODER_ERROR    = "0.0 +/- 1 arcsec (flat)"
 
 class POAModel:
@@ -50,10 +51,12 @@ class POAModel:
         self.params["poa.encoder[theta].bits"]  = HARMONI_POA_ENCODER_BITS
         self.params["poa.encoder[theta].qerr"]  = HARMONI_POA_QUANTIZATION_ERR 
         self.params["poa.encoder[theta].error"] = HARMONI_POA_ENCODER_ERROR
+        self.params["poa.encoder[theta].speed"] = HARMONI_POA_MOTOR_SPEED
         
         self.params["poa.encoder[phi].bits"]    = HARMONI_POA_ENCODER_BITS
         self.params["poa.encoder[phi].qerr"]    = HARMONI_POA_QUANTIZATION_ERR
         self.params["poa.encoder[phi].error"]   = HARMONI_POA_ENCODER_ERROR
+        self.params["poa.encoder[phi].speed"]   = HARMONI_POA_MOTOR_SPEED
         
         self.params["poa.radius"]               = HARMONI_POA_RADIUS
         self.params["poa.arm_instability"]      = HARMONI_POA_ARM_INSTABILITY
@@ -73,6 +76,9 @@ class POAModel:
         self.pos_error       = GQ(self.params["poa.position_error"])
         self.radius          = GQ(self.params["poa.radius"])
         self.arm_instability = GQ(self.params["poa.arm_instability"])
+        self.omega           = [
+            GQ(self.params["poa.encoder[theta].speed"]),
+            GQ(self.params["poa.encoder[phi].speed"])]
         
         self.step_count      = [
             2 ** self.params["poa.encoder[theta].bits"],
@@ -177,6 +183,49 @@ class POAModel:
         return FloatArray.make(
             twopi * np.column_stack((digital_theta, digital_phi)))
     
+    def model_theta_phi_from_xy(self, xy, mirror = False): 
+        return self.model_theta_phi(
+            self.xy_to_theta_phi(
+                self.corrective_transform.backward(xy), 
+                mirror))
+        
+    def model_sweep(self, xy_0, xy_1, t_num, mirror = False):
+        # The sweep model is extremely simple: it assumes that both 
+        # axes start and stop moving immediately with constant velocity.
+        # Of course, this may not be enough: arms have momentum, and we expect
+        # a more complex behavior involving throttling / braking and friction.
+        n = xy_0.shape[0]
+        
+        if n != xy_1.shape[0]:
+            raise InvalidTensorShapeError("Mismatching shapes for point lists")
+        
+        theta_phi_0 = self.model_theta_phi_from_xy(xy_0, mirror)
+        theta_phi_1 = self.model_theta_phi_from_xy(xy_1, mirror)
+        
+        # This np.pi offset is necessary to prevent a negative tiny angle to
+        # be reached by performing a (2 * pi - alpha) rotation
+        # delta_alpha: N x 2 
+        delta_alpha = -np.pi + \
+            ((theta_phi_1 - theta_phi_0 + np.pi) % (2 * np.pi))
+        signs       = np.sign(delta_alpha)
+        
+        # Correct speeds by the direction it must be applied to.
+        # omega: N x 2
+        omega       = signs * FloatArray.make([
+            self.omega[0].generate(n, "radian/s"),
+            self.omega[1].generate(n, "radian/s")]).transpose()
+        
+        # delta_2: N x 2
+        delta_t     = delta_alpha / omega
+        
+        # result: t_num x N x 2
+        theta_phi = np.linspace(theta_phi_0, theta_phi_0 + delta_alpha, t_num)
+        theta_phi = -np.pi + ((theta_phi + np.pi) % (2 * np.pi))
+        
+        return (
+            np.linspace(0, delta_t, t_num),
+            theta_phi)
+        
     def model_xy_from_theta_phi(self, theta_phi):
         q_theta_phi = self.model_theta_phi(theta_phi)
         theta       = q_theta_phi[:, 0]

@@ -33,6 +33,8 @@ from harmoni_pm.optics import OpticalModel
 from harmoni_pm.zernike import ZernikeSolver
 from .error_sampler import ErrorSampler
 from .calibration_strategy_collection import CalibrationStrategyCollection
+from harmoni_pm.common.exceptions import InvalidTensorShapeError
+from harmoni_pm.common.array import FloatArray
 
 import numpy as np
 
@@ -156,6 +158,122 @@ class Calibration:
         # Step 3: solve pointing model
         solver = ZernikeSolver(points / self.model.R(), self.J)
         return solver.solve_for(self.err_vec)
+    
+    def _sort_points_by_axis_distance(
+            self, 
+            points, 
+            exp = np.inf, 
+            random = False):
+        
+        if random:
+            points = points.copy()
+            s = np.random.randint(points.shape[0])
+            a, b = points[0, :].copy(), points[s, :].copy()
+            points[0, :], points[s, :] = b, a
+        
+        theta_phi = self.model.poa_model.xy_to_theta_phi(points)
+
+        new_points = [points[0, :].tolist()]
+        for i in range(1, points.shape[0]):
+            p     = theta_phi[i - 1, :]  # Reference point
+            delta = theta_phi[i:, :] - p # Angle deltas
+            delta = (delta + np.pi) % (2 * np.pi) - np.pi
+            dists = np.linalg.norm(delta, axis = 1, ord = exp)
+            min_i = i + np.argmin(dists)
+            
+            # Swap!
+            a, b = theta_phi[i, :].copy(), theta_phi[min_i, :].copy()
+            theta_phi[i, :], theta_phi[min_i, :] = b, a
+            
+            new_points.append(
+                self.model.poa_model.xy_from_theta_phi(
+                    theta_phi[i:i + 1, :]).flatten().tolist())
+            
+        
+        result = FloatArray.make(new_points)
+        return result
+    
+    def get_calibration_path(
+            self, 
+            points = None, 
+            t_num = 50, 
+            t_cal = 0,
+            optimize = False,
+            exponent = np.inf,
+            random = False):
+        if points is None:
+            points = self.get_gcu_points()
+                
+        if len(points.shape) != 2:
+            raise InvalidTensorShapeError(
+                "Invalid point matrix shape (must be Nx2)")
+    
+        if optimize:
+            points = self._sort_points_by_axis_distance(
+                points, 
+                exp = exponent,
+                random = random)
+            
+        N = points.shape[0]
+        
+        # Step 1: start a calibration session
+        self.start_session()
+        
+        # Step 2: compute t_num timesteps per point pair
+        poa_model = self.model.poa_model
+        if N < 2:
+            return (
+                FloatArray.make([0]),
+                self.points, 
+                poa_model.model_theta_phi_from_xy(self.points))
+        
+        # Step 3:  
+        t, alpha = poa_model.model_sweep(points[0:-1], points[1:], t_num)
+        
+        final_theta = []
+        final_phi   = []
+        final_t     = []
+        t_p         = []
+        t0          = 0
+        
+        # Shape of both t and alpha is t_num x N x 2. For each angle we will
+        # have different time samplings. We will construct two interpolators
+        # to obtain a combined time sampling axis for both axes
+        for i in range(t.shape[1]):
+            t_p.append(t0)
+            t_pos_max = np.max(t[-1, i, :])
+            t_combined = np.linspace(0, t_pos_max, t_num)
+            
+            # Note that one of both axes will finish positioning earlier
+            # than the other. We encode this situation by adding an extra
+            # time step in the end at the time all axes have finished
+            # positioning.
+            
+            t_theta = np.append(t[:, i, 0], t_pos_max)
+            t_phi   = np.append(t[:, i, 1], t_pos_max)
+            
+            theta   = np.append(alpha[:, i, 0], alpha[-1, i, 0])
+            theta   = np.interp(t_combined, t_theta, theta)
+            
+            phi     = np.append(alpha[:, i, 1], alpha[-1, i, 1])
+            phi     = np.interp(t_combined, t_phi, phi)
+            
+            final_t.append(t0 + t_combined)
+            final_theta.append(theta)
+            final_phi.append(phi)
+            
+            t0     += t_pos_max + t_cal
+            
+        t_p.append(t0)
+        final_theta = FloatArray.make(final_theta).flatten()
+        final_phi   = FloatArray.make(final_phi).flatten()
+        
+        theta_phi   = FloatArray.make([final_theta, final_phi]).transpose()
+        final_t     = FloatArray.make(final_t).flatten()
+        
+        xy          = poa_model.xy_from_theta_phi(theta_phi)
+        
+        return (final_t, theta_phi, xy, t_p, points)
     
     def sample_pointing_model(self, count = 100):
         i = 0

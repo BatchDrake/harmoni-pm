@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # Copyright (c) 2021 Gonzalo J. Carracedo <BatchDrake@gmail.com>
 # 
@@ -55,8 +56,13 @@ class PointingSimulator:
         self.gap             = self.config["simulation.gap"]
         self.type            = self.config["simulation.type"]
         self.point_count     = self.config["simulation.points"]
+        self.optimize        = self.config["simulation.optimize"]
+        self.exponent        = self.config["simulation.exponent"]
+        self.randstart       = self.config["simulation.randstart"]
+        
         self.do_plot         = self.config["artifacts.plot"]
         self.markers         = self.config["artifacts.markers"]
+        
         
         # Parse config tweaks
         self.tweaks = []
@@ -221,7 +227,9 @@ class PointingSimulator:
         ax[0].set_ylabel('Y (mm)')
         ax[0].set_title("Pointing error heatmap")
         
-        ax[1].hist(1e6 * np.sqrt(self.calibration.get_error_map().flatten()), 100)
+        valid = self.calibration.get_error_map().flatten()
+        valid = valid[valid > 0]
+        ax[1].hist(1e6 * np.sqrt(valid), 100)
         ax[1].set_xlabel("Pointing error (µm)")
         ax[1].grid(True)
         ax[1].set_title("Error histogram")
@@ -259,6 +267,17 @@ class PointingSimulator:
             plt.suptitle("Error after model (J = {0})".format(self.J))
             
             if self.markers:
+                t, alpha, xy, t_p, p = self.calibration.get_calibration_path(
+                    points,
+                    optimize = self.optimize,
+                    exponent = self.exponent)
+                ax[0].plot(
+                    1e3 * xy[:, 0], 
+                    1e3 * xy[:, 1], 
+                    linewidth = 1, 
+                    color = 'white', 
+                    alpha = .75)
+            
                 ax[0].scatter(
                     1e3 * points[:, 0], 
                     1e3 * points[:, 1], 
@@ -268,6 +287,118 @@ class PointingSimulator:
                     linewidth = 1)
             plt.show()
         
+    def run_calibration_time_test(self):
+        points = self.calibration.generate_points(
+            int(self.point_count), 
+            self.strategy)
+        print("Info: computing path for {0} calibration points".format(points.shape[0]))
+        t, alpha, xy, t_p, p = self.calibration.get_calibration_path(
+            points,
+            optimize = self.optimize,
+            exponent = self.exponent,
+            random   = self.randstart)
+        print("done.")
+        
+        print(
+            "Total calibration time: {0:.2f} s (~ {1:2.1f} min)".format(
+                np.max(t), 
+                np.max(t) / 60))
+        
+        if self.do_plot:
+            fig, ax = plt.subplots(1, 2)
+        
+            axes = FloatArray.make(self.calibration.get_axes())
+
+            bearing = pch.Arc(
+                (0, 0), 
+                2e3 * self.calibration.model.R(), 
+                2e3 * self.calibration.model.R(),
+                edgecolor = 'black',
+                linestyle = '--',
+                linewidth = 2)
+            ax[0].add_patch(bearing)
+            
+            ax[0].set_xlabel('X (mm)')
+            ax[0].set_ylabel('Y (mm)')
+            ax[0].set_title("NGSS bearing")
+            
+            ax[0].plot(1e3 * xy[:, 0], 1e3 * xy[:, 1], linewidth = 1, color = 'blue', alpha = .65)
+            
+            ax[1].plot(t, alpha[:, 0] / np.pi * 180, label = '$\\theta$', color = 'red')
+            ax[1].plot(t, alpha[:, 1] / np.pi * 180, label = '$\phi$', color = 'blue')
+            
+            if self.markers:
+                ax[0].scatter(
+                    1e3 * p[:, 0], 
+                    1e3 * p[:, 1], 
+                    40, 
+                    marker = '+', 
+                    c = '#003f00',
+                    linewidth = 2)
+                             
+                ax[0].scatter(
+                    1e3 * p[0, 0], 
+                    1e3 * p[0, 1], 
+                    40, 
+                    marker = 'o', 
+                    c = '#ff0000',
+                    linewidth = 2)
+                                   
+                i = 0
+                for t in t_p:
+                    ax[0].text(
+                        1e3 * p[i, 0] + 2.5,
+                        1e3 * p[i, 1] + 2.5,
+                        "$p_{{{0}}}$".format(i + 1, t))
+                    i += 1
+                    ax[1].plot(
+                        [t, t], 
+                        [-180, 180], 
+                        linestyle = 'dashed',
+                        color = 'gray',
+                        linewidth = 1)
+            
+            ax[1].set_xlabel('Calibration time (s)')
+            ax[1].set_ylabel('Axis angle (deg)')
+            ax[1].set_title('Calibration path (strategy: {0})'.format(self.strategy))
+            ax[1].legend()
+            
+            plt.show()
+        
+    def run_calibration_time_distribution_test(self):
+        print(
+            "Info: computing paths for {0} calibration points".format(
+                self.point_count))
+        
+        t_list = []
+        for n in range(self.N):
+            points = self.calibration.generate_points(
+                int(self.point_count), 
+                self.strategy)
+            t, alpha, xy, t_p, p = self.calibration.get_calibration_path(
+                points,
+                optimize = self.optimize,
+                exponent = self.exponent,
+                random   = self.randstart)
+            t_list.append(np.max(t))
+            if n % 100 == 0:
+                print("{0:4}/{1} tests performed\r".format(n, self.N), end = "")
+        
+        mean = np.mean(t_list)
+        max  = np.max(t_list)
+        min  = np.min(t_list)
+        
+        print("Min  calibration time: {0:.2f} s (~ {1:.2f} min)".format(min, min / 60))
+        print("Max  calibration time: {0:.2f} s (~ {1:.2f} min)".format(max, max / 60))
+        print("Mean calibration time: {0:.2f} s (~ {1:.2f} min)".format(mean, mean / 60))
+        
+        if self.do_plot:
+            plt.hist(np.array(t_list) / 60, 50)
+            plt.xlabel('Calibration time (min)')
+            plt.title('Calibration time histogram for strategy {0}'.format(self.strategy))
+            plt.grid()
+            plt.show()
+            
     def run(self):
         if self.type == "prior":
             self.run_calculate_prior()
@@ -277,7 +408,11 @@ class PointingSimulator:
             self.run_single_calibration_test()
         elif self.type == "errormap":
             self.run_show_error_map()
-            
+        elif self.type == "caltime":
+            self.run_calibration_time_test()
+        elif self.type == "caldist":
+            self.run_calibration_time_distribution_test()
+    
 def config_from_cli():
     config = Configuration()
     
@@ -286,14 +421,12 @@ def config_from_cli():
     
     parser.add_argument(
         "-c",
-        "--config",
         dest = "config_file",
         default = "harmoni.ini",
         help = "set the location of the pointing model description")
     
     parser.add_argument(
         "-s",
-        "--set",
         dest = "cli_tweaks",
         default = [],
         action = "append",
@@ -302,7 +435,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-J",
-        "--polynomials",
         dest = "J",
         default = 3,
         type = int,
@@ -311,7 +443,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-C",
-        "--calibration-points",
         dest = "calibration_points",
         default = 553,
         type = int,
@@ -319,29 +450,45 @@ def config_from_cli():
     
     parser.add_argument(
         "-t",
-        "--test-type",
         dest = "test_type",
         default = "prior",
         help = "Sets the test type (pass `list' to print a list of available tests)")
     
     parser.add_argument(
         "-S",
-        "--strategy",
         dest = "strategy",
         default = POINTINGSIM_DEFAULT_STRATEGY,
         help = "Sets the calibration strategy (pass `list' to print a list of available strategies)")
     
-    
     parser.add_argument(
         "-p",
-        "--pattern",
         dest = "pattern",
         default = POINTINGSIM_DEFAULT_OUTPUT_PREFIX,
         help = "set file name pattern for output files (may include dirs)")
     
     parser.add_argument(
+        "-o",
+        dest = "optimize",
+        default = False,
+        action = 'store_true',
+        help = "optimize calibration path")
+    
+    parser.add_argument(
+        "-r",
+        dest = "randstart",
+        default = False,
+        action = 'store_true',
+        help = "use random starting point for calibration optimization")
+    
+    parser.add_argument(
+        "-e",
+        dest = "exponent",
+        default = np.inf,
+        type = float,
+        help = "norm of the distance used for path calibration")
+    
+    parser.add_argument(
         "-N",
-        "--number",
         dest = "N",
         type = int,
         default = 1000,
@@ -349,7 +496,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-P",
-        "--plot",
         dest = "plot",
         default = False,
         action = 'store_true',
@@ -357,7 +503,6 @@ def config_from_cli():
 
     parser.add_argument(
         "-m",
-        "--markers",
         dest = "markers",
         default = False,
         action = 'store_true',
@@ -365,7 +510,6 @@ def config_from_cli():
 
     parser.add_argument(
         "-g",
-        "--gap",
         dest = "gap",
         type = QuantityType("mm"),
         default = QuantityType("mm", 10.0),
@@ -378,6 +522,9 @@ def config_from_cli():
         print("prior:    Samples a prior for the pointing model coefficients")
         print("calplot:  Computes the error curve for different calibration point counts")
         print("calmap:   Computes an error heatmap for a given calibration strategy")
+        print("caltime:  Plots the calibration path over time for a given strategy")
+        print("caldist:  Calculate the time distribution of a given calibration strategy")
+        
         sys.exit(0)
         
     if args.strategy == "list":
@@ -390,17 +537,20 @@ def config_from_cli():
         print("")
         sys.exit(0)
             
-    config["config.file"]         = args.config_file
-    config["config.tweaks"]       = args.cli_tweaks
-    config["simulation.N"]        = args.N
-    config["simulation.J"]        = args.J
-    config["simulation.strategy"] = args.strategy
-    config["simulation.gap"]      = args.gap["meters"]
-    config["simulation.type"]     = args.test_type
-    config["simulation.points"]   = args.calibration_points
+    config["config.file"]          = args.config_file
+    config["config.tweaks"]        = args.cli_tweaks
+    config["simulation.N"]         = args.N
+    config["simulation.J"]         = args.J
+    config["simulation.strategy"]  = args.strategy
+    config["simulation.gap"]       = args.gap["meters"]
+    config["simulation.type"]      = args.test_type
+    config["simulation.points"]    = args.calibration_points
+    config["simulation.optimize"]  = args.optimize
+    config["simulation.exponent"]  = args.exponent
+    config["simulation.randstart"] = args.randstart
     
-    config["artifacts.plot"]      = args.plot
-    config["artifacts.markers"]   = args.markers
+    config["artifacts.plot"]       = args.plot
+    config["artifacts.markers"]    = args.markers
     
     return config
 
