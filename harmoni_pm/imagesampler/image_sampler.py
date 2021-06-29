@@ -58,7 +58,7 @@ class ImageSampler(PlaneSampler):
         
         J = dTdx[:, 0] * dTdy[:, 1] - dTdx[:, 1] * dTdy[:, 0]
         
-        F = Ninv * self.betaA * self.plane.get_intensity(Tb) * J
+        F = Ninv * self.plane.get_flux(Tb) * J
     
         np.add.at(self.ccd, tuple(ij.transpose()), F)
     

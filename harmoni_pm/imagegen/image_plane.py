@@ -55,27 +55,27 @@ class ImagePlane:
     def plate_scale(self):
         return 1 / self.f
     
-    def _get_intensity(self, xy):
+    def _get_flux(self, xy):
         return 0.
     
-    def _get_intensity_matrix(self, matrix):
+    def _get_flux_matrix(self, matrix):
         if len(matrix.shape) != 2:
             raise InvalidTensorShapeError("High-order tensors not yet supported")
 
-        return np.apply_along_axis(self._get_intensity, 1, matrix)
+        return np.apply_along_axis(self._get_flux, 1, matrix)
     
-    def get_intensity_from_matrix(self, xy = None, x = None, y = None):
+    def get_flux_from_matrix(self, xy = None, x = None, y = None):
         xy = self.f * get_xy(xy, x, y)
         
         if len(xy.shape) != 1:
             raise InvalidTensorShapeError("High-order tensors not yet supported")
         
-        return self._get_intensity_matrix(self, [xy])[0] 
+        return self._get_flux_matrix(self, [xy])[0] 
     
-    def get_intensity(self, xy = None, x = None, y = None):
+    def get_flux(self, xy = None, x = None, y = None):
         xy = self.f * get_xy(xy, x, y)
         
         if len(xy.shape) == 1:
-            return self._get_intensity(xy)
+            return self._get_flux(xy)
         else:
-            return self._get_intensity_matrix(xy)
+            return self._get_flux_matrix(xy)

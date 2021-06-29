@@ -86,12 +86,8 @@ class PointingSimulator:
         for tweak in self.tweaks:
             try:
                 model_config.parse(tweak[0], tweak[1])
-                print(model_config[tweak[0]])
             except SyntaxError:
-                print(tweak[0])
-                print(model_config[tweak[0]])
                 model_config.set(tweak[0], tweak[1])
-                print(model_config[tweak[0]])
         
         self.calibration = Calibration(model_config, J = self.J, gap = self.gap)
 

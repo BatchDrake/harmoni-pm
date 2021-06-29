@@ -52,16 +52,38 @@ class SGSimulator:
     def __init__(self, config):
         self.config = config
         
+        # Load model configuration
+        self.path    = self.config["config.file"]
+        model_config = Configuration()
+        model_config.load(self.path)
+        
+        # Parse config tweaks
+        self.tweaks = []
+        for i in self.config["config.tweaks"]:
+            tweak = i[0].split("=", 1)
+            if len(tweak) == 2:
+                self.tweaks.append((tweak[0].strip(), tweak[1].strip()))
+        
+        for tweak in self.tweaks:
+            try:
+                model_config.parse(tweak[0], tweak[1])
+            except SyntaxError:
+                model_config.set(tweak[0], tweak[1])
+            
+        # Create model objects    
         if not config.have("source.plane"):
             raise RuntimeError("No source specified")
         elif config["source.plane"] == "gcu":
-            self.plane = GCUImagePlane()
+            self.plane = GCUImagePlane(model_config)
         else:
             raise RuntimeError(
                 "Unsupported source image plane: \"{0}\"".format(config["source.plane"]))
     
-        self.model = OpticalModel()
+        self.model = OpticalModel(model_config)
+        
+        # Configure arm
         self.model.move_to(config["poa.theta"], config["poa.phi"])
+        
         
         self.sampler = ImageSampler(self.plane, self.model)
         
@@ -77,6 +99,7 @@ class SGSimulator:
         
     def print_summary(self):
         print("SGSim: the secondary guiding simulator")
+        print("  Model configuration file: {0}".format(self.config["config.file"]))
         print("  Pick-off arm configuration: ")
         print("    theta = {0}º".format(self.config["poa.theta"] / np.pi * 180))
         print("    phi   = {0}º".format(self.config["poa.phi"] / np.pi * 180))
@@ -121,15 +144,27 @@ def config_from_cli():
         description = "Simulate HARMONI's optics as projected in a CCD")
     
     parser.add_argument(
+        "-c",
+        dest = "config_file",
+        default = "harmoni.ini",
+        help = "set the location of the pointing model description")
+    
+    parser.add_argument(
+        "-s",
+        dest = "cli_tweaks",
+        default = [],
+        action = "append",
+        nargs = '*',
+        help = "override an entry in the configuration file")
+    
+    parser.add_argument(
         "-o",
-        "--output",
         dest = "output",
         default = None,
         help = "set the output PNG file name (default: generate from options)")
     
     parser.add_argument(
         "-W",
-        "--width",
         dest = "width",
         type = int,
         default = 1024,
@@ -137,7 +172,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-H",
-        "--height",
         dest = "height",
         type = int,
         default = 1024,
@@ -159,22 +193,19 @@ def config_from_cli():
     
     parser.add_argument(
         "-f",
-        "--focal-length",
         dest = "focal_length",
         type = QuantityType("meter"),
         default = QuantityType("meter", SGSIM_DEFAULT_CCD_FOCAL_LENGTH),
         help = "set detector's focal length")
         
     parser.add_argument(
-        "-s",
-        "--source",
+        "-S",
         dest = "source",
         default = "gcu",
         help = "set observation source (default: gcu)")
     
     parser.add_argument(
         "-t",
-        "--theta",
         dest = "theta",
         type = QuantityType("radian"),
         default = QuantityType("radian", SGSIM_DEFAULT_POA_THETA),
@@ -182,7 +213,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-p",
-        "--phi",
         dest = "phi",
         type = QuantityType("radian"),
         default = QuantityType("radian", SGSIM_DEFAULT_POA_PHI),
@@ -190,7 +220,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-O",
-        "--oversampling",
         dest = "oversampling",
         type = int,
         default = 8,
@@ -198,7 +227,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-P",
-        "--parallel",
         dest = "parallel",
         default = False,
         action = 'store_true',
@@ -206,7 +234,6 @@ def config_from_cli():
     
     parser.add_argument(
         "-e",
-        "--exposition",
         dest = "exposition",
         type = QuantityType("second"),
         default = QuantityType("second", 0),
@@ -217,6 +244,9 @@ def config_from_cli():
     if args.output is None:
         args.output = SGSIM_DEFAULT_OUTPUT_PREFIX + \
             "_" + str(args.width) + "x" + str(args.height) + ".png"
+    
+    config["config.file"]          = args.config_file
+    config["config.tweaks"]        = args.cli_tweaks
         
     config["artifacts.output"] = args.output 
     

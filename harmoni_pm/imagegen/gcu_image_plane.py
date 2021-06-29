@@ -35,7 +35,7 @@ from harmoni_pm.common.array import FloatArray
 
 HARMONI_GCU_POINT_SEPARATION = 15e-3  # m
 HARMONI_GCU_POINT_DIAMETER   = 150e-6 # m
-HARMONI_GCU_POINT_INTENSITY  = 1e-3   # W Hz^-1 m^-2 sr^-1
+HARMONI_GCU_POINT_FLUX       = 1e-3   # W Hz^-1 m^-2
 HARMONI_GCU_MASK_X0          = 0      # m
 HARMONI_GCU_MASK_Y0          = 0      # m
 HARMONI_GCU_MASK_DIAMETER    = 400e-3 # m
@@ -44,7 +44,7 @@ class GCUImagePlane(ImagePlane):
     def _extract_params(self):
         self.p_sep      = self.params["gcu.point.separation"]
         self.p_diam     = self.params["gcu.point.diameter"]
-        self.p_int      = self.params["gcu.point.intensity"]
+        self.p_int      = self.params["gcu.point.flux"]
         self.m_diameter = self.params["gcu.mask.diameter"]
         
         self.m_p0       = FloatArray.make(
@@ -61,7 +61,7 @@ class GCUImagePlane(ImagePlane):
         
         self.params["gcu.point.separation"] = HARMONI_GCU_POINT_SEPARATION
         self.params["gcu.point.diameter"]   = HARMONI_GCU_POINT_DIAMETER
-        self.params["gcu.point.intensity"]  = HARMONI_GCU_POINT_INTENSITY
+        self.params["gcu.point.flux"]       = HARMONI_GCU_POINT_FLUX
         self.params["gcu.mask.x0"]          = HARMONI_GCU_MASK_X0
         self.params["gcu.mask.y0"]          = HARMONI_GCU_MASK_Y0
         self.params["gcu.mask.diameter"]    = HARMONI_GCU_MASK_DIAMETER
@@ -146,7 +146,7 @@ class GCUImagePlane(ImagePlane):
         self.params.load(path)
         self._extract_params()
     
-    def _get_intensity_matrix(self, xy):
+    def _get_flux_matrix(self, xy):
         mod = np.fmod(
             1.5 * self.p_sep + np.fmod(xy - self.m_p0, self.p_sep), 
             self.p_sep) - .5 * self.p_sep
@@ -171,8 +171,8 @@ class GCUImagePlane(ImagePlane):
             * self.in_mask(xy) \
             * (np.linalg.norm(mod, axis = 1) <= .5 * self.p_diam)
     
-    def _get_intensity(self, xy):
-        return self.get_intensity_from_matrix(xy)
+    def _get_flux(self, xy):
+        return self.get_flux_from_matrix(xy)
 
         
     

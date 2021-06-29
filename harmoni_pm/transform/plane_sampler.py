@@ -41,7 +41,7 @@ HARMONI_PLANE_SAMPLER_OVERSAMPLING = 8
 class PlaneSampler:
     def __init__(self):
         self.oversampling = HARMONI_PLANE_SAMPLER_OVERSAMPLING
-        self.set_parallel(True)
+        self.set_parallel(False)
         
     def _process_slice(self, coords):
         start = time.time()
