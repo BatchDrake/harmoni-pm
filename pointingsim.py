@@ -36,8 +36,10 @@ from harmoni_pm.common import QuantityType
 from harmoni_pm.calibration import CalibrationStrategyCollection
 from datetime import datetime
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot  as plt
 import matplotlib.patches as pch
+import seaborn            as sns
+import pandas             as pd # Required only to make kdeplot work
 
 import argparse, sys
 import numpy as np
@@ -62,7 +64,7 @@ class PointingSimulator:
         
         self.do_plot         = self.config["artifacts.plot"]
         self.markers         = self.config["artifacts.markers"]
-        
+        self.kde             = self.config["artifacts.kde"]
         
         # Parse config tweaks
         self.tweaks = []
@@ -141,18 +143,58 @@ class PointingSimulator:
             print("")
             
             if self.do_plot:
-                fig, ax = plt.subplots(1, 2)
-                ax[0].hist(np.real(coefs[:, j]), 100, density = True)
-                ax[1].hist(np.imag(coefs[:, j]), 100, density = True)
+                fig, ax = plt.subplots(2, 2)
+                
+                self.plot_zernike_poly(j = j, ax = ax[0, 0])
+                
+                ax[1, 0].hist(np.real(coefs[:, j]), 100, density = True)
+                ax[1, 1].hist(np.imag(coefs[:, j]), 100, density = True)
+                
+                if self.kde:
+                    as2d = FloatArray.make([
+                        np.real(coefs[:, j]),
+                        np.imag(coefs[:, j])]).transpose()
+                    
+                    ax[0, 1].set_title("Kernel density estimation for $a^{{{0}}}_{{{1}}}$".format(m, n))
+                    data = pd.DataFrame(
+                        data = as2d, 
+                        index = np.linspace(0, self.N - 1, self.N),
+                        columns = ["re", "im"])
+                    
+                    sns.kdeplot(
+                        data    = data,
+                        x       = "re",
+                        y       = "im",
+                        ax      = ax[0, 1], 
+                        fill    = True,
+                        thresh  = 0,
+                        levels  = 100,
+                        cmap    = "inferno")
+                else:
+                    ax[0, 1].set_title("Scatter plot for $a^{{{0}}}_{{{1}}}$".format(m, n))
+                    ax[0, 1].scatter(
+                        np.real(coefs[:, j]),
+                        np.imag(coefs[:, j]),
+                        1)
+                    
+                # ax[2].hist2d(
+                #    np.real(coefs[:, j]), 
+                #    np.imag(coefs[:, j]), 
+                #    50, 
+                #    cmap   = plt.get_cmap("inferno"),
+                #    density = True)
                 
                 fig.suptitle("Histograms for $a^{{{0}}}_{{{1}}}$".format(m, n))
-                ax[0].set_title("$Re(a^{{{0}}}_{{{1}}})$".format(m, n))
-                ax[0].grid(True)
+                ax[1, 0].set_title("$Re(a^{{{0}}}_{{{1}}})$".format(m, n))
+                ax[1, 0].grid(True)
                 
-                ax[1].set_title("$Im(a^{{{0}}}_{{{1}}})$".format(m, n))
-                ax[1].grid(True)
+                ax[1, 1].set_title("$Im(a^{{{0}}}_{{{1}}})$".format(m, n))
+                ax[1, 1].grid(True)
             
-        
+                ax[0, 1].set_xlabel("$Re(a^{{{0}}}_{{{1}}})$".format(m, n))
+                ax[0, 1].set_ylabel("$Im(a^{{{0}}}_{{{1}}})$".format(m, n))
+                
+                
         if self.do_plot:    
             plt.show()
         
@@ -236,6 +278,48 @@ class PointingSimulator:
         ax[1].set_yscale("log")
         
         return ax
+
+    def plot_zernike_poly(self, j = 0, ax = None):
+        if ax is None:
+            fig, ax = plt.figure()
+        
+        m, n = ComplexZernike.j_to_mn(j)
+        xy = np.meshgrid(np.linspace(-1, 1, 20), np.linspace(-1, 1, 20))
+                
+        cc = np.zeros(j + 1)
+        cc[j] = 1
+        Z     = ComplexZernike(cc)
+        
+        xx    = xy[0].flatten()
+        yy    = xy[1].flatten()
+        
+        xyl   = FloatArray.make([xx, yy]).transpose()
+        field = Z(xyl) / (2 * xy[0].shape[0])
+        
+        valid = xx ** 2 + yy ** 2 <= 1
+         
+        limit = pch.Arc(
+                (0, 0), 
+                2, 
+                2,
+                edgecolor = 'black',
+                linestyle = '-',
+                linewidth = 1)
+        ax.add_patch(limit)
+            
+        ax.quiver(
+            xx[valid], 
+            yy[valid], 
+            np.real(field[valid]), 
+            np.imag(field[valid]),
+            angles = 'xy',
+            color = 'blue')
+        
+        ax.set_xlim([-1.2, 1.2])
+        ax.set_ylim([-1.2, 1.2])
+        
+        ax.set_title("Zernike polynomial for $a^{{{0}}}_{{{1}}}$".format(m, n))
+
 
     def run_show_error_map(self):
         self.calibration.test_model(None, True)
@@ -474,6 +558,13 @@ def config_from_cli():
         help = "optimize calibration path")
     
     parser.add_argument(
+        "-k",
+        dest = "kde",
+        default = False,
+        action = 'store_true',
+        help = "compute kernel density estimation (prior test only)")
+    
+    parser.add_argument(
         "-r",
         dest = "randstart",
         default = False,
@@ -551,6 +642,7 @@ def config_from_cli():
     
     config["artifacts.plot"]       = args.plot
     config["artifacts.markers"]    = args.markers
+    config["artifacts.kde"]        = args.kde
     
     return config
 

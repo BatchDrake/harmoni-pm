@@ -77,7 +77,7 @@ class OpticalModel:
         
     def _rebuild_transforms(self):
         # Create composite transforms
-        self.transform = CompositeTransform()
+        self.transform          = CompositeTransform()
         self.pointing_transform = CompositeTransform()
         
         # Build transforms
