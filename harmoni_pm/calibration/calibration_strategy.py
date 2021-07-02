@@ -28,13 +28,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from __future__ import annotations
-from abc import ABC, abstractmethod
-
 class CalibrationStrategy:        
     def __init__(self):
         pass
 
-    @abstractmethod
     def generate_points(self, scale = 1):
         pass

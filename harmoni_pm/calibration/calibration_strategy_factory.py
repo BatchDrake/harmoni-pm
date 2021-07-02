@@ -28,10 +28,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from __future__ import annotations
-from abc import ABC, abstractmethod
-
 class CalibrationStrategyFactory:
-    @abstractmethod
     def make(self, gcu, config):
         pass

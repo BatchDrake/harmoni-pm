@@ -53,7 +53,7 @@ class EntryReference:
                 ref = value
                 i += 1
             elif value is None:
-                raise LookupError("No such configuration entry `" + ref.key + "'")
+                raise LookupError("No such configuration entry `" + ref.key + "' for key " + self.key)
             else:
                 return value
         raise LookupError("Entry reference recursion limit reached")
@@ -121,7 +121,6 @@ class Entry:
     
     def parse(self, asstr):
         # Some quantities may be uncertain with a distribution
-        
         self.set(_parse_entry(asstr))
         
 class Section:
@@ -191,7 +190,9 @@ class Configuration:
             for i in config.sections.keys():
                 section = self.upsert_section(i)
                 for j in config.sections[i].get_entries():
-                    section.set(j, config.sections[i].get(j))
+                    # This seems cumbersome. It is not: it forces a resolution
+                    # on entry references.
+                    section.set(j, config[i + "." + j])
                     
     def have_section(self, name):
         return name in self.sections
@@ -210,7 +211,6 @@ class Configuration:
     def upsert_section(self, section):
         if not self.have_section(section):
             self.sections[section] = Section(self, section)
-            
         return self.sections[section]
     
     def get(self, name):
@@ -258,6 +258,9 @@ class Configuration:
         with open(file, 'w') as conf:
             cfgfile.write(conf)
     
+    def debug(self):
+        self.write("/dev/stdout")
+        
     def load(self, file):
         cfgfile = RawConfigParser()
         cfgfile.optionxform = lambda option: option
