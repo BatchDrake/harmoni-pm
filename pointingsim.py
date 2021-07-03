@@ -65,6 +65,7 @@ class PointingSimulator:
         self.do_plot         = self.config["artifacts.plot"]
         self.markers         = self.config["artifacts.markers"]
         self.kde             = self.config["artifacts.kde"]
+        self.save_files      = self.config["artifacts.save_files"]
         
         # Parse config tweaks
         self.tweaks = []
@@ -91,6 +92,30 @@ class PointingSimulator:
         
         self.calibration = Calibration(model_config, J = self.J, gap = self.gap)
 
+    def file_suffix(self):
+        return ("_N" + str(self.N) 
+                + "J" + str(self.J) 
+                + "C" + str(self.point_count) 
+                + "_" + self.strategy
+                + ("_O" if self.optimize else ""))
+        
+    def showplot(self, plot, name):
+        if (self.save_files):
+            filename = name + self.file_suffix() + ".png"
+            plot.savefig(filename)
+            print("Figure saved to " + filename)
+        else:
+            plt.show()
+            
+    def dataproduct(self, name, array):
+        if (self.save_files):
+            filename = name + self.file_suffix() + ".dat"
+            np.save(filename, array)
+            print(
+                "Data product saved to " 
+                + filename 
+                + " (shape: " + 'x'.join(list(map(str, array.shape))) + ")")
+            
     def print_summary(self):
         print("PointingSim: the pointing error simulator")
         print("  Model configuration file: {0}".format(self.config["config.file"]))
@@ -139,7 +164,7 @@ class PointingSimulator:
             print("")
             
             if self.do_plot:
-                fig, ax = plt.subplots(2, 2)
+                fig, ax = plt.subplots(2, 2, figsize = (10, 10))
                 
                 self.plot_zernike_poly(j = j, ax = ax[0, 0])
                 
@@ -190,13 +215,18 @@ class PointingSimulator:
                 ax[0, 1].set_xlabel("$Re(a^{{{0}}}_{{{1}}})$".format(m, n))
                 ax[0, 1].set_ylabel("$Im(a^{{{0}}}_{{{1}}})$".format(m, n))
                 
-                
-        if self.do_plot:    
-            plt.show()
+                if self.do_plot and self.save_files:    
+                    self.showplot(plt, "prior_a{0}{1}".format(m, n))
+                    
+        if self.do_plot and not self.save_files:    
+            self.showplot(plt, "prior")
         
     def run_calibration_tests(self):
         numpoints = self.calibration.get_gcu_points().shape[0]
         
+        if self.point_count < numpoints:
+            numpoints = self.point_count
+            
         mean_error = np.zeros([self.N, numpoints])
         
         plist = range(0, numpoints)
@@ -215,6 +245,9 @@ class PointingSimulator:
                 
         mean_mse = np.mean(mean_error, axis = 0)
         std_mse  = np.std(mean_error, axis = 0)
+    
+        
+        self.dataproduct("cal_err", mean_error)
         
         if self.do_plot:
             x = np.array(plist[0:]) + 1
@@ -230,6 +263,16 @@ class PointingSimulator:
                 facecolor = '#ff8080',
                 antialiased = True)
             
+            if self.markers:
+                plt.plot(
+                    [self.J, self.J], 
+                    [np.min(mean_error, axis = 0), np.max(mean_error, axis = 0)], 
+                    color = 'gray', 
+                    linewidth = 1)
+            else:
+                plt.xlim([self.J, numpoints])
+                plt.ylim([1e-6, 1e-4])
+                
             plt.grid(True)
             plt.xlabel("Calibration points")
             plt.ylabel("$||E||_2$")
@@ -238,10 +281,10 @@ class PointingSimulator:
                 self.J,
                 self.strategy))
             
-            plt.show()
+            self.showplot(plt, "calplot")
         
     def plot_heatmap(self):
-        fig, ax = plt.subplots(1, 2)
+        fig, ax = plt.subplots(1, 2, figsize = (16, 6))
         
         axes = FloatArray.make(self.calibration.get_axes())
         
@@ -321,7 +364,7 @@ class PointingSimulator:
         self.calibration.test_model(None, True)
         self.plot_heatmap()
         plt.suptitle("Error heatmap (without model)")
-        plt.show()
+        self.showplot(plt, "uncorrected")
         
     def run_single_calibration_test(self):
         points = self.calibration.generate_points(
@@ -365,7 +408,7 @@ class PointingSimulator:
                     marker = '+', 
                     c = '#00ff00',
                     linewidth = 1)
-            plt.show()
+            self.showplot(plt, "calibrated")
         
     def run_calibration_time_test(self):
         points = self.calibration.generate_points(
@@ -385,7 +428,7 @@ class PointingSimulator:
                 np.max(t) / 60))
         
         if self.do_plot:
-            fig, ax = plt.subplots(1, 2)
+            fig, ax = plt.subplots(1, 2, figsize = (16, 7.5))
         
             axes = FloatArray.make(self.calibration.get_axes())
 
@@ -443,7 +486,7 @@ class PointingSimulator:
             ax[1].set_title('Calibration path (strategy: {0})'.format(self.strategy))
             ax[1].legend()
             
-            plt.show()
+            self.showplot(plt, "caltime")
         
     def run_calibration_time_distribution_test(self):
         print(
@@ -477,7 +520,7 @@ class PointingSimulator:
             plt.xlabel('Calibration time (min)')
             plt.title('Calibration time histogram for strategy {0}'.format(self.strategy))
             plt.grid()
-            plt.show()
+            self.showplot(plt, "caldist")
             
     def run(self):
         if self.type == "prior":
@@ -519,7 +562,6 @@ def config_from_cli():
         default = 3,
         type = int,
         help = "set the number of Zernike polynomials in the pointing model")
-    
     
     parser.add_argument(
         "-C",
@@ -596,6 +638,13 @@ def config_from_cli():
         help = "show GCU points used for calibration")
 
     parser.add_argument(
+        "-w",
+        dest = "write",
+        default = False,
+        action = 'store_true',
+        help = "save plots to files instead of opening windows")
+
+    parser.add_argument(
         "-g",
         dest = "gap",
         type = QuantityType("mm"),
@@ -639,6 +688,7 @@ def config_from_cli():
     config["artifacts.plot"]       = args.plot
     config["artifacts.markers"]    = args.markers
     config["artifacts.kde"]        = args.kde
+    config["artifacts.save_files"] = args.write
     
     return config
 

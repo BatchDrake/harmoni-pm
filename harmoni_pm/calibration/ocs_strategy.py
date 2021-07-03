@@ -34,6 +34,7 @@ from harmoni_pm.calibration import CalibrationStrategy
 from harmoni_pm.calibration import CalibrationStrategyFactory
 from harmoni_pm.calibration import CalibrationStrategyCollection
 
+import random
 import numpy as np
 
 HARMONI_OCS_STRATEGY_NUMBER = 11
@@ -54,6 +55,7 @@ class OCSStrategy(CalibrationStrategy):
         
     def __init__(self, gcu, config):
         self.gcu = gcu
+        self.alpha = 2 * np.pi * np.random.uniform(0, 1)
         self._init_params()
         self.params.copy_from(config)
         self._extract_params()
@@ -71,12 +73,17 @@ class OCSStrategy(CalibrationStrategy):
             r_j *= scale
             
             for s in range(1, n_j + 1):
-                theta = 2 * np.pi * (s - 1) / n_j
+                theta = self.alpha + 2 * np.pi * (s - 1) / n_j
                 P.append([r_j * np.cos(theta), r_j * np.sin(theta)])
             
         calpoints = FloatArray.make(P)
         
-        return self.gcu.closest(self.gcu.unnormalize(calpoints[0:self.N, :]))
+        if self.N < calpoints.shape[0]:
+            indices = list(random.sample(range(calpoints.shape[0]), self.N))
+            indices.sort()
+            calpoints = calpoints[indices, :]
+            
+        return self.gcu.closest(self.gcu.unnormalize(calpoints))
     
 class OCSStrategyFactory(CalibrationStrategyFactory):
     @staticmethod

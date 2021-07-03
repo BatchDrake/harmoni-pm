@@ -55,7 +55,8 @@ class SpiralStrategy(CalibrationStrategy):
         self._init_params()
         self.params.copy_from(config)
         self._extract_params()
-        
+        self.alpha = 2 * np.pi * np.random.uniform(0, 1)
+
     def generate_points(self, scale = 1.):
         P = []
         
@@ -67,7 +68,7 @@ class SpiralStrategy(CalibrationStrategy):
             dtheta =  theta_max / (self.N - 1)
             for j in range(0, self.N):
                 rho   = scale * np.sqrt(j / float(self.N - 1))
-                theta = j * dtheta
+                theta = self.alpha + j * dtheta
                 
                 P.append([rho * np.cos(theta), rho * np.sin(theta)])
         
