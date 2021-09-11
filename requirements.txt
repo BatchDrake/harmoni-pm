@@ -1,4 +1,3 @@
-uncertainties.egg==info
 chardet==3.0.4
 numpy==1.19.5
 seaborn==0.11.1
