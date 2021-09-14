@@ -42,12 +42,13 @@ import numpy as np
 IMAGE_WIDTH         = 1920
 IMAGE_HEADER_HEIGHT = 320
 IMAGE_MARGIN_WIDTH  = 24
-IMAGE_POINT_RADIUS  = 2
+IMAGE_POINT_RADIUS  = 4
 IMAGE_COLORMAP_SIZE = 256
 
-IMAGE_DEFAULT_VECTOR_COLOR      = "#00ff00"
-IMAGE_DEFAULT_ORIGINAL_COLOR    = "gray"
-IMAGE_DEFAULT_DESTINATION_COLOR = "white"
+IMAGE_DEFAULT_VECTOR_COLOR      = "#ff0000"
+IMAGE_DEFAULT_ORIGINAL_COLOR    = "black"
+IMAGE_DEFAULT_DESTINATION_COLOR = "red"
+IMAGE_DEFAULT_LIMIT_COLOR       = "black"
 IMAGE_DEFAULT_TYPE              = "vector"
 IMAGE_DEFAULT_COLORMAP          = "inferno"
 
@@ -56,6 +57,7 @@ class TransformTester:
         self.transform = transform
         self.planets = load('de421.bsp')
         self.earth = self.planets['earth']
+        self.radlimit = None
         
         self.vector_color      = IMAGE_DEFAULT_VECTOR_COLOR
         self.original_color    = IMAGE_DEFAULT_ORIGINAL_COLOR
@@ -110,13 +112,18 @@ class TransformTester:
     
         self.prepare_dataset()
         
-    def generate_points(self, width, height, delta_x, delta_y):
-        self.width  = width
-        self.height = height
-        self.delta  = FloatArray.make([delta_x, delta_y])
-        self.J      = None
-        self.sizes  = None
-        self.desc   = "Rectangular grid of points"
+    def generate_points(self, width, height, delta_x, delta_y, radlimit = None):
+        self.width    = width
+        self.height   = height
+        self.delta    = FloatArray.make([delta_x, delta_y])
+        self.J        = None
+        self.sizes    = None
+        self.radlimit = radlimit
+        
+        if radlimit is not None:
+            self.desc = "Rectangular grid (radius {0})".format(radlimit)
+        else:
+            self.desc   = "Rectangular grid of points"
          
         rows = int(np.floor(height / delta_y))
         cols = int(np.floor(width  / delta_x))
@@ -126,8 +133,11 @@ class TransformTester:
         # TODO: matrix-hack this?
         for i in range(cols):
             for j in range(rows):
-                self.point_array[count, 0] = (.5 + i - np.floor(cols) / 2) * delta_x
-                self.point_array[count, 1] = (.5 + j - np.floor(rows) / 2) * delta_y
+                x = (.5 + i - np.floor(cols) / 2) * delta_x
+                y = (.5 + j - np.floor(rows) / 2) * delta_y
+                if radlimit is None or np.sqrt(x * x + y * y) < radlimit:
+                    self.point_array[count, 0] = x
+                    self.point_array[count, 1] = y
                 count += 1
         
         self.prepare_dataset()
@@ -176,7 +186,7 @@ class TransformTester:
         err =  (self.point_array - self.result)
         return np.sqrt(np.mean(err[:, 0] * err[:, 0] + err[:, 1] * err[:, 1]))
     
-    def draw_vectors(self, draw, m, x0y0):
+    def draw_vectors(self, draw, m, x0y0, scale = 1):
         for i in range(self.point_count):
             if self.sizes is None:
                 radius = self.point_radius
@@ -187,7 +197,7 @@ class TransformTester:
             orig = [(xy1[0] - radius, xy1[1] - radius),
                     (xy1[0] + radius, xy1[1] + radius)]
             
-            xy2 = self.result[i, :] * m + x0y0
+            xy2 = (self.point_array[i, :] + scale * (self.result[i, :] - self.point_array[i, :])) * m + x0y0
             dest = [(xy2[0] - radius, xy2[1] - radius),
                     (xy2[0] + radius, xy2[1] + radius)] 
             
@@ -301,7 +311,7 @@ class TransformTester:
         field = (np.arctan2(e[:, 1], e[:, 0]) - np.arctan2(self.input[:, 1], self.input[:, 0]))
         self.draw_scalar_field(draw, np.abs(np.sin(field)), m, x0y0, 0, 1)
         
-    def save_to_image(self, path, maptype = IMAGE_DEFAULT_TYPE):
+    def save_to_image(self, path, maptype = IMAGE_DEFAULT_TYPE, zoom = 1):
         # Calculate geometry of the resulting image
         width        = int(IMAGE_WIDTH)
         field_width  = np.ceil(width - 2 * IMAGE_MARGIN_WIDTH)
@@ -345,7 +355,7 @@ class TransformTester:
         
         draw.text(
             (IMAGE_MARGIN_WIDTH, IMAGE_MARGIN_WIDTH + 100),
-            u"Field geometry: {0}x{1}".format(self.width, self.height),
+            u"Field geometry: {0}x{1} (error scaled by {2})".format(self.width, self.height, zoom),
             font = fnt_small,
             fill = "#000000")
         
@@ -368,11 +378,14 @@ class TransformTester:
             fill = "#000000")
         
         # Enclose it
-        draw.rectangle(field_box, fill='black', outline="gray", width=(IMAGE_POINT_RADIUS * 2))
-
+        if self.radlimit is not None:
+            draw.ellipse((x0y0[0] - scale * self.radlimit, x0y0[1] - scale * self.radlimit, x0y0[0] +scale * self.radlimit, x0y0[1]  + scale * self.radlimit), width=(IMAGE_POINT_RADIUS * 2), outline=IMAGE_DEFAULT_LIMIT_COLOR)
+        else:
+            draw.rectangle(field_box, fill='white', outline="gray", width=(IMAGE_POINT_RADIUS * 2))
+            
         # Draw
         if maptype == "vector":
-            self.draw_vectors(draw, m, x0y0)
+            self.draw_vectors(draw, m, x0y0, zoom)
         elif maptype == "determinant":
             self.draw_jacobian_det(draw, m, x0y0)
         elif maptype == "divergence":
