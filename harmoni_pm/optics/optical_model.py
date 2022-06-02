@@ -77,9 +77,10 @@ class OpticalModel:
         
     def _rebuild_transforms(self):
         # Create composite transforms
-        self.transform          = CompositeTransform()
-        self.pointing_transform = CompositeTransform()
-        
+        self.transform            = CompositeTransform()
+        self.pointing_transform   = CompositeTransform()
+        self.aberration_transform = CompositeTransform()
+
         # Build transforms
         self._push_common_transforms(self.transform)
         self.transform.push_back(self.poa_transform)
@@ -87,6 +88,8 @@ class OpticalModel:
         self._push_common_transforms(self.pointing_transform)
         self.pointing_transform.push_back(self.poa_center_transform)
         
+        self._push_common_transforms(self.aberration_transform)
+
     def set_pointing_model(self, model):
         self.poa_model.set_error_model(model)
 
@@ -126,6 +129,9 @@ class OpticalModel:
     
     def get_pointing_transform(self):
         return self.pointing_transform
+    
+    def get_aberration_transform(self):
+        return self.aberration_transform
     
     def set_cal(self, cal_select):
         if cal_select is not self.cal_select:

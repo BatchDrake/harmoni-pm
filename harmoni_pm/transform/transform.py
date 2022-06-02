@@ -68,6 +68,27 @@ class Transform:
         else:
             return self._backward_matrix(xy)
     
+    # Warning: this is the Jacobian of the epsilon, not of the full transform
+    def forward_jacobian(self, xy = None, x = None, y = None, h = 1e-12):
+        xy    = get_xy(xy, x, y)
+        xydx  = xy + [h, 0]
+        xydy  = xy + [0, h]
+
+        dxydx = (self.forward(xydx) - [h, 0] - self.forward(xy)) / h
+        dxydy = (self.forward(xydy) - [0, h] - self.forward(xy)) / h
+
+        return [dxydx, dxydy]
+    
+    def backward_jacobian(self, xy = None, x = None, y = None, h = 1e-12):
+        xy    = get_xy(xy, x, y)
+        xydx  = xy + [h, 0]
+        xydy  = xy + [0, h]
+
+        dxydx = (self.backward(xydx) - [h, 0] - self.backward(xy)) / h
+        dxydy = (self.backward(xydy) - [0, h] - self.backward(xy)) / h
+
+        return [dxydx, dxydy]
+
     def generate(self, event = "manufacture"):
         pass
     

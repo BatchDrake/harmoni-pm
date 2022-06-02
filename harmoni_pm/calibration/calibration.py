@@ -64,16 +64,24 @@ class Calibration:
         self.solver = ZernikeSolver(self.gcu_points / self.model.R(), J)
 
         self.pointing_transform = self.model.get_pointing_transform()
+        self.aberration_transform = self.model.get_aberration_transform()
         
-        self.sampler = ErrorSampler(self.pointing_transform)
-        
-        self.sampler.set_sampling_properties(
+        self.pointing_sampler = ErrorSampler(self.pointing_transform)
+        self.pointing_sampler.set_sampling_properties(
             HARMONI_CALIBRATION_SAMPLER_COLS, 
             HARMONI_CALIBRATION_SAMPLER_ROWS, 
             HARMONI_CALIBRATION_STEP_X, 
             HARMONI_CALIBRATION_STEP_Y, 
             radius = self.model.R() - gap)
-        
+
+        self.aberration_sampler = ErrorSampler(self.aberration_transform)
+        self.aberration_sampler.set_sampling_properties(
+            HARMONI_CALIBRATION_SAMPLER_COLS, 
+            HARMONI_CALIBRATION_SAMPLER_ROWS, 
+            HARMONI_CALIBRATION_STEP_X, 
+            HARMONI_CALIBRATION_STEP_Y, 
+            radius = self.model.R() - gap)
+
         self.rho_scale = (self.model.R() - gap) / self.model.R()
         
     def get_axes(self):
@@ -97,6 +105,7 @@ class Calibration:
             return self.gcu_points[indices[0:up_to], :]
         
         return self.gcu_points
+    
     
     def generate_points(self, number, strategy = "random"):
         return CalibrationStrategyCollection().generate_points(
@@ -128,9 +137,12 @@ class Calibration:
     def solve_pointing_model(self):
         return self.solver.solve_for(self.err_vec)
         
-    def test_model(self, params, full = False):
+    def test_model(self, params, full = False, offset = None):
         # TODO: Disable instabilities!!
+        self.sampler = self.pointing_sampler if offset is None else self.aberration_sampler
         self.set_pointing_model(params)
+        self.sampler.set_offset(offset)
+
         if full:
             self.sample_error_map()
         else:

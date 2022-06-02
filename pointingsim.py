@@ -61,7 +61,9 @@ class PointingSimulator:
         self.optimize        = self.config["simulation.optimize"]
         self.exponent        = self.config["simulation.exponent"]
         self.randstart       = self.config["simulation.randstart"]
-        
+        self.gcu_x_off       = self.config["simulation.gcu_x_off"]
+        self.gcu_y_off       = self.config["simulation.gcu_y_off"]
+    
         self.do_plot         = self.config["artifacts.plot"]
         self.markers         = self.config["artifacts.markers"]
         self.kde             = self.config["artifacts.kde"]
@@ -366,17 +368,20 @@ class PointingSimulator:
             
             self.showplot(plt, "calplot")
         
-    def plot_heatmap(self):
+    def plot_heatmap(
+        self,
+        desc = "Pointing error (µm)",
+        mul = 1e6):
         fig, ax = plt.subplots(1, 2, figsize = (16, 6))
         
         axes = FloatArray.make(self.calibration.get_axes())
         
         im = ax[0].imshow(
-            1e6 * np.sqrt(self.calibration.get_error_map().transpose()), 
+            mul * np.sqrt(self.calibration.get_error_map().transpose()), 
             cmap   = plt.get_cmap("inferno"),
             extent = 1e3 * axes)
         c = plt.colorbar(im, ax = ax[0])
-        c.set_label("Pointing error (µm)")
+        c.set_label(desc)
         
         bearing = pch.Arc(
             (0, 0), 
@@ -393,14 +398,17 @@ class PointingSimulator:
         
         valid = self.calibration.get_error_map().flatten()
         valid = valid[valid > 0]
-        x     = 1e6 * np.sqrt(valid)
-        logbins = np.logspace(np.log10(np.min(x)),np.log10(100), 100)
-                
+        x     = mul * np.sqrt(valid)
+
+        min_x = np.min(x)
+        max_x = np.max(x)
+        logbins = np.logspace(np.log10(min_x), np.log10(max(130e-6 * mul, max_x)), 100)
+
         ax[1].hist(x, bins = logbins)
-        ax[1].set_xlabel("Pointing error (µm)")
+        ax[1].set_xlabel(desc)
         ax[1].grid(True)
         ax[1].set_title("Error histogram")
-        ax[1].plot([13, 13], ax[1].get_ylim(), color = 'red', label = 'Calibration goal (13 µm)')
+        ax[1].plot([13e-6 * mul, 13e-6 * mul], ax[1].get_ylim(), color = 'red', label = 'Calibration goal (13 µm)')
         ax[1].set_xscale('log')
         ax[1].legend()
         return ax
@@ -451,6 +459,15 @@ class PointingSimulator:
         self.calibration.test_model(None, True)
         self.plot_heatmap()
         plt.suptitle("Error heatmap (without model)")
+        self.showplot(plt, "uncorrected")
+
+    def run_show_gcu_misaligned_cal_error_map(self):
+        self.calibration.test_model(None, True, offset = [self.gcu_x_off, self.gcu_y_off])
+        self.plot_heatmap("Correction miss (nm)", mul=1e9)
+        plt.suptitle(
+            "Extrapolation error due to GCU misalignment ($\\Delta x$ = {0:g} µm, $\\Delta y$ = {1:g} µm)".format(
+                self.gcu_x_off * 1e6,
+                self.gcu_y_off * 1e6))
         self.showplot(plt, "uncorrected")
         
     def run_single_calibration_test(self):
@@ -620,6 +637,8 @@ class PointingSimulator:
             self.run_single_calibration_test()
         elif self.type == "errormap":
             self.run_show_error_map()
+        elif self.type == "gcumacalmap":
+            self.run_show_gcu_misaligned_cal_error_map()
         elif self.type == "caltime":
             self.run_calibration_time_test()
         elif self.type == "caldist":
@@ -740,6 +759,20 @@ def config_from_cli():
         default = QuantityType("mm", 10.0),
         help = "set the bearing gap width")
 
+    parser.add_argument(
+        "-x",
+        dest = "gcu_x_off",
+        type = QuantityType("um"),
+        default = QuantityType("um", 100.0),
+        help = "set the X offset for GCU displacement sensitivity")
+
+    parser.add_argument(
+        "-y",
+        dest = "gcu_y_off",
+        type = QuantityType("um"),
+        default = QuantityType("um", 0.0),
+        help = "set the Y offset for GCU displacement sensitivity")
+
     args = parser.parse_args()
     
     if args.test_type == "list":
@@ -774,7 +807,8 @@ def config_from_cli():
     config["simulation.optimize"]  = args.optimize
     config["simulation.exponent"]  = args.exponent
     config["simulation.randstart"] = args.randstart
-    
+    config["simulation.gcu_x_off"] = args.gcu_x_off["meters"]
+    config["simulation.gcu_y_off"] = args.gcu_y_off["meters"]
     config["artifacts.plot"]       = args.plot
     config["artifacts.markers"]    = args.markers
     config["artifacts.kde"]        = args.kde

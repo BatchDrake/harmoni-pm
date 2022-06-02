@@ -38,13 +38,19 @@ class ErrorSampler(PlaneSampler):
         super().__init__()
         
         self.transform = transform
-        self.err_xy  = FloatArray.make(np.zeros([0, 2]))
-        self.err_sq = FloatArray.make(np.zeros([0]))
-        
+        self.err_xy    = FloatArray.make(np.zeros([0, 2]))
+        self.err_sq    = FloatArray.make(np.zeros([0]))
+        self.displ     = None
+
     def _process_region(self, ij, xy):
         Ninv = 1. / self.oversampling ** 2
         
-        err_xy = FloatArray.make(xy - self.transform.backward(xy))
+        if self.offset is not None:
+            J = self.transform.backward_jacobian(xy)
+            err_xy = FloatArray.make([np.matmul(J[0], self.offset), np.matmul(J[1], self.offset)]).transpose()
+        else:
+            err_xy = FloatArray.make(xy - self.transform.backward(xy))
+        
         err_sq = np.linalg.norm(err_xy, axis = 1) ** 2
         
         ij[:, 1] = self.rows - ij[:, 1] - 1
@@ -61,9 +67,14 @@ class ErrorSampler(PlaneSampler):
         super().precalculate()
         self.reset_err_map()
         
+    def set_offset(self, offset):
+        if offset is None:
+            self.offset = None
+        else:
+            self.offset = FloatArray.make(offset)
+
     def process_points(self, points):
         self.reset_err_map()
-        
         prev_oversampling = self.oversampling
         self.oversampling = 1
         result = super().process_points(points)
