@@ -207,7 +207,7 @@ class TransformTester:
                 orig, 
                 fill = self.original_color, 
                 outline = self.original_color)
-            draw.line(rect, fill = self.vector_color, width = 1)
+            draw.line(rect, fill = self.vector_color, width = 4)
             draw.ellipse(
                 dest, 
                 fill = self.destination_color, 

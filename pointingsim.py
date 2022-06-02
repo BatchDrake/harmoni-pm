@@ -135,11 +135,94 @@ class PointingSimulator:
         print("  Show markers:         {0}".format("yes" if self.markers else "no"))
         print("  ")
 
+
+    def plot_correlations(self, coef, isImag = False):
+        J = coef.shape[1]
+        fig, ax = plt.subplots(J, J, figsize=(22.86, 20))
+        plt.tight_layout()
         
+        for i in range(J):
+            Ci = np.imag(coef[:, i]) if isImag else np.real(coef[:, i])
+            for j in range(J):
+                Cj = np.imag(coef[:, j]) if isImag else np.real(coef[:, j])
+
+                a = ax[j, i]
+                
+                if i == 0: # Column is 0: set ylabel
+                    m, n = ComplexZernike.j_to_mn(j)
+                    a.set_ylabel("$a^{{{0}}}_{{{1}}}$".format(m, n))
+
+                if j == 0: # Row is 0: set title
+                    m, n = ComplexZernike.j_to_mn(i)
+                    a.set_title("$a^{{{0}}}_{{{1}}}$".format(m, n))
+                    
+                if i == j:
+                    a.hist(Ci, 100, density = True)
+                else:
+                    a.scatter(Ci, Cj, .125, alpha = .15)
+                    
+    def print_correlations(self, coef, isImag = False):
+        if isImag:
+            print("Pearson correlation coefficient (Imaginary part)")
+        else:
+            print("Pearson correlation coefficient (Real part)")
+        
+        J = coef.shape[1]
+        print("          ", end = '')
+        
+        for j in range(J):
+            m, n = ComplexZernike.j_to_mn(j)
+            print("a({0:2},{1:2})|".format(m, n), end = '')
+        print('')
+
+        print("         +", end = '')
+        
+        for j in range(J):
+            m, n = ComplexZernike.j_to_mn(j)
+            print("--------+".format(m, n), end = '')
+        print('')
+        
+        for j in range(J):
+            m, n = ComplexZernike.j_to_mn(j)
+            Cj = np.imag(coef[:, j]) if isImag else np.real(coef[:, j])
+            print("a({0:2},{1:2}) |".format(m, n), end = '')
+            
+            for i in range(J):
+                Ci = np.imag(coef[:, i]) if isImag else np.real(coef[:, i])
+                R = np.corrcoef(Ci, Cj)
+                if i == j:
+                    print("        |", end = '')
+                else:
+                    print("{:+.5f}|".format(R[0, 1]), end = '')
+            print("")
+        print("         +", end = '')
+        
+        for j in range(J):
+            m, n = ComplexZernike.j_to_mn(j)
+            print("--------+".format(m, n), end = '')
+        print('')
+        print("")
+        
+    def run_prior_xcorr(self):
+        coefs = self.calibration.sample_pointing_model(self.N)
+
+        self.print_correlations(coefs, False)
+        self.print_correlations(coefs, True)
+           
+        if self.do_plot:
+            self.plot_correlations(coefs, False)
+            if self.save_files:
+                self.showplot(plt, "xcorr_real")
+            self.plot_correlations(coefs, True)
+            self.showplot(plt, "xcorr_imag")
+
+            
+                
+            
     def run_calculate_prior(self):
         coefs = self.calibration.sample_pointing_model(self.N)
         print("Prior for the pointing model (J = {0}): ".format(self.calibration.J))
-        
+
         for j in range(coefs.shape[1]):
             m, n = ComplexZernike.j_to_mn(j)
             coefstr = "a({0:2},{1:2})".format(m, n)
@@ -310,12 +393,16 @@ class PointingSimulator:
         
         valid = self.calibration.get_error_map().flatten()
         valid = valid[valid > 0]
-        ax[1].hist(1e6 * np.sqrt(valid), 100)
+        x     = 1e6 * np.sqrt(valid)
+        logbins = np.logspace(np.log10(np.min(x)),np.log10(100), 100)
+                
+        ax[1].hist(x, bins = logbins)
         ax[1].set_xlabel("Pointing error (µm)")
         ax[1].grid(True)
         ax[1].set_title("Error histogram")
-        ax[1].set_yscale("log")
-        
+        ax[1].plot([13, 13], ax[1].get_ylim(), color = 'red', label = 'Calibration goal (13 µm)')
+        ax[1].set_xscale('log')
+        ax[1].legend()
         return ax
 
     def plot_zernike_poly(self, j = 0, ax = None):
@@ -525,6 +612,8 @@ class PointingSimulator:
     def run(self):
         if self.type == "prior":
             self.run_calculate_prior()
+        elif self.type == "xcorr":
+            self.run_prior_xcorr()
         elif self.type == "calplot":
             self.run_calibration_tests()
         elif self.type == "calmap":
@@ -660,6 +749,7 @@ def config_from_cli():
         print("calmap:   Computes an error heatmap for a given calibration strategy")
         print("caltime:  Plots the calibration path over time for a given strategy")
         print("caldist:  Calculate the time distribution of a given calibration strategy")
+        print("xcorr:    Calculate cross correlations between coefficients")
         
         sys.exit(0)
         
