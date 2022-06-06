@@ -41,7 +41,8 @@ class ErrorSampler(PlaneSampler):
         self.err_xy    = FloatArray.make(np.zeros([0, 2]))
         self.err_sq    = FloatArray.make(np.zeros([0]))
         self.displ     = None
-
+        self.offset    = None
+        
     def _process_region(self, ij, xy):
         Ninv = 1. / self.oversampling ** 2
         

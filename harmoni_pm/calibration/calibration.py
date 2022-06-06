@@ -118,6 +118,8 @@ class Calibration:
         self.model.set_pointing_model(params)
         
     def measure_displacements(self, points = None):
+        self.sampler = self.pointing_sampler
+        
         if points is None:
             points = self.get_gcu_points()
             
